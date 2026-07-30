@@ -582,8 +582,13 @@ async function buscarColaborador(codigo) {
 
 async function marcarAcceso(colaboradorId) {
   if (MODO_DEMO) return;
-  await supabase.rpc('marcar_acceso_colaborador', { p_colaborador_id: colaboradorId })
-    .catch(() => {});
+const { data, error } = await supabase.rpc(
+  'marcar_acceso_colaborador',
+  { p_colaborador_id: colaboradorId }
+);
+
+console.log(data);
+console.log(error);
 }
 
 function renderLogin() {
