@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · NOM-035 · Acceso administrador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#666973;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
+  .layout{max-width:440px;margin:auto;padding:24px;width:100%;}
+  .layout.ancho{max-width:640px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;justify-content:center;margin-bottom:28px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);text-align:center;}
+  .card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:32px 28px;}
+  h1.titulo{font-size:20px;font-weight:800;margin:0 0 6px;}
+  p.subtitulo{color:var(--gris-700);font-size:13.5px;line-height:1.5;margin:0 0 22px;}
+  label.campo-label{display:block;font-size:13px;font-weight:600;margin-bottom:7px;}
+  input.campo-input{width:100%;padding:13px 15px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);font-family:var(--font);font-size:15px;background:var(--gris-100);}
+  input.campo-input:focus{outline:none;border-color:var(--rojo);background:#fff;}
+  .campo-grupo{margin-bottom:16px;}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:14.5px;border-radius:var(--radius-sm);padding:13px 20px;width:100%;}
+  .btn-primario{background:var(--rojo);color:#fff;}
+  .btn-primario:hover{background:var(--rojo-oscuro);}
+  .btn-primario:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-secundario{background:transparent;color:var(--gris-700);border:1.5px solid var(--gris-200);margin-top:14px;}
+  .error-msg{color:var(--rojo);font-size:13px;font-weight:600;margin-top:12px;display:none;}
+  .error-msg.visible{display:block;}
+
+  .grid-accesos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+  @media (max-width:480px){.grid-accesos{grid-template-columns:1fr;}}
+  .acceso{display:flex;flex-direction:column;gap:8px;padding:18px;border-radius:var(--radius-md);border:1.5px solid var(--gris-200);text-decoration:none;color:var(--negro);transition:border-color .12s ease;}
+  .acceso:hover{border-color:var(--rojo);}
+  .acceso .nombre{font-weight:700;font-size:14.5px;}
+  .acceso .desc{font-size:12px;color:var(--gris-500);}
+
+  .oculto{display:none !important;}
+  .cargando{text-align:center;color:var(--gris-500);font-size:13.5px;padding:40px 0;}
+</style>
+</head>
+<body>
+<div class="layout" id="layout"></div>
+
+<script>
+/* =====================================================================
+   index.html — Puerta de acceso para administradores.
+   Login con Supabase Auth (email/password) + verificacion contra
+   seguimiento.es_admin() (Modulo 9). Los colaboradores NUNCA pasan por
+   aqui: entran directo a colaborador.html con su codigo, sin sesion.
+
+   Reemplaza SUPABASE_URL / SUPABASE_ANON_KEY y las URLs de PAGINAS abajo
+   con las de tu proyecto Vercel antes de publicar.
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+
+// Ajusta estas 5 URLs a donde Vercel sirve cada archivo.
+const PAGINAS = [
+  { nombre: 'Colaborador (vista previa)', desc: 'Encuesta que contestan los colaboradores', url: 'https://riverline-nom035.vercel.app/app/colaborador.html' },
+  { nombre: 'Seguimiento', desc: 'KPIs, importar colaboradores, recordatorios', url: 'https://riverline-nom035.vercel.app/app/admin-seguimiento.html' },
+  { nombre: 'Análisis', desc: 'Resultados del periodo, plan de acción', url: 'https://riverline-nom035.vercel.app/app/admin-analisis.html' },
+  { nombre: 'Reportes', desc: 'PDF, Excel, Word, PowerPoint', url: 'https://riverline-nom035.vercel.app/app/admin-reportes.html' },
+  { nombre: 'Histórico', desc: 'Comparativo entre periodos', url: 'https://riverline-nom035.vercel.app/app/admin-historico.html' },
+];
+
+// Nota de nomenclatura: se usa "supabaseClient" (no "supabase") para no
+// pisar el objeto global que trae el script del CDN.
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const layout = document.getElementById('layout');
+
+function iconoCandado(){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>'; }
+
+function renderCargando() {
+  layout.className = 'layout';
+  layout.innerHTML = '<div class="cargando">Verificando sesión…</div>';
+}
+
+function renderLogin(mensajeError) {
+  layout.className = 'layout';
+  layout.innerHTML =
+    '<div class="brand"><span class="brand-mark"></span><span>Riverline<br><small>Acceso administrador · NOM-035</small></span></div>' +
+    '<div class="card">' +
+      '<h1 class="titulo">Iniciar sesión</h1>' +
+      '<p class="subtitulo">Acceso exclusivo para administradores autorizados. Los colaboradores contestan la encuesta con su código, sin iniciar sesión aquí.</p>' +
+      '<div class="campo-grupo"><label class="campo-label" for="input-email">Correo</label><input id="input-email" class="campo-input" type="email" autocomplete="username" /></div>' +
+      '<div class="campo-grupo"><label class="campo-label" for="input-password">Contraseña</label><input id="input-password" class="campo-input" type="password" autocomplete="current-password" /></div>' +
+      '<button class="btn btn-primario" id="btn-entrar">Entrar</button>' +
+      '<p id="error-login" class="error-msg ' + (mensajeError ? 'visible' : '') + '">' + (mensajeError || '') + '</p>' +
+    '</div>';
+
+  const inputEmail = document.getElementById('input-email');
+  const inputPassword = document.getElementById('input-password');
+  const boton = document.getElementById('btn-entrar');
+  const error = document.getElementById('error-login');
+
+  inputPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') boton.click(); });
+
+  boton.addEventListener('click', async () => {
+    const email = inputEmail.value.trim();
+    const password = inputPassword.value;
+    if (!email || !password) return;
+    boton.disabled = true;
+    boton.textContent = 'Entrando…';
+    error.classList.remove('visible');
+
+    const { error: errLogin } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (errLogin) {
+      error.textContent = 'Correo o contraseña incorrectos.';
+      error.classList.add('visible');
+      boton.disabled = false;
+      boton.textContent = 'Entrar';
+      return;
+    }
+    await verificarYMostrar();
+  });
+}
+
+function renderAccesos(correo) {
+  layout.className = 'layout ancho';
+  layout.innerHTML =
+    '<div class="brand"><span class="brand-mark"></span><span>Riverline<br><small>Acceso administrador · NOM-035</small></span></div>' +
+    '<div class="card">' +
+      '<h1 class="titulo">Hola, ' + correo + '</h1>' +
+      '<p class="subtitulo">Elige a dónde quieres ir.</p>' +
+      '<div class="grid-accesos">' +
+        PAGINAS.map((p) => '<a class="acceso" href="' + p.url + '"><span class="nombre">' + p.nombre + '</span><span class="desc">' + p.desc + '</span></a>').join('') +
+      '</div>' +
+      '<button class="btn btn-secundario" id="btn-salir">Cerrar sesión</button>' +
+    '</div>';
+
+  document.getElementById('btn-salir').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    renderLogin();
+  });
+}
+
+async function verificarYMostrar() {
+  renderCargando();
+  const { data: sesion } = await supabaseClient.auth.getSession();
+  if (!sesion.session) {
+    renderLogin();
+    return;
+  }
+  const { data: esAdmin, error } = await supabaseClient.rpc('es_admin');
+  if (error || !esAdmin) {
+    // Autenticado pero NO es admin: no le mostramos nada, cerramos su sesión.
+    await supabaseClient.auth.signOut();
+    renderLogin('Tu cuenta no tiene permisos de administrador.');
+    return;
+  }
+  renderAccesos(sesion.session.user.email);
+}
+
+verificarYMostrar();
+</script>
+</body>
+</html>
