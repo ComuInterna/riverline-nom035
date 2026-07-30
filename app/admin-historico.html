@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Historico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --nulo:#1f8a4c; --bajo:#6fae4a; --medio:#c99a2e; --alto:#e2711d; --muy_alto:#e50d2e;
+    --verde:#1f8a4c; --verde-bg:#e8f6ee;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:1100px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:#c99a2e;padding:5px 10px;border-radius:100px;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;}
+  .panel-titulo{font-size:16px;font-weight:800;margin:0 0 4px;}
+  .panel-sub{font-size:12.5px;color:var(--gris-500);margin:0 0 18px;}
+
+  .kpi-tendencia{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+  .kpi-tendencia .cifra{font-size:32px;font-weight:800;}
+  .flecha{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;padding:5px 10px;border-radius:100px;}
+  .flecha svg{width:13px;height:13px;}
+  .flecha.mejora{background:var(--verde-bg);color:var(--verde);}
+  .flecha.empeora{background:#fdeaec;color:var(--rojo);}
+  .flecha.igual{background:var(--gris-200);color:var(--gris-700);}
+
+  .selector-comparar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .selector-comparar select{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;}
+  .selector-comparar span{font-size:12.5px;color:var(--gris-500);}
+
+  table.tabla-comparativo{width:100%;border-collapse:collapse;font-size:13px;}
+  table.tabla-comparativo th{text-align:left;font-size:11px;font-weight:700;color:var(--gris-500);text-transform:uppercase;letter-spacing:.02em;padding:8px 10px;border-bottom:2px solid var(--gris-200);}
+  table.tabla-comparativo td{padding:10px;border-bottom:1px solid var(--gris-100);}
+  .badge-nivel{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:100px;}
+
+  table.tabla-aplicaciones{width:100%;border-collapse:collapse;font-size:13px;}
+  table.tabla-aplicaciones th{text-align:left;font-size:11px;font-weight:700;color:var(--gris-500);text-transform:uppercase;letter-spacing:.02em;padding:8px 10px;border-bottom:2px solid var(--gris-200);}
+  table.tabla-aplicaciones td{padding:10px;border-bottom:1px solid var(--gris-100);}
+
+  canvas{max-width:100%;}
+
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-100:#121317; --gris-200:#26282f; --blanco:#1b1c22; --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89; }
+    body{background:#0c0d10;}
+    .panel{background:#1b1c22;}
+    .selector-comparar select{background:#1b1c22;color:var(--negro);}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Historico</small></span>
+    </div>
+    <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+  </header>
+
+  <section class="panel">
+    <div class="panel-titulo">Tendencia de la calificacion global</div>
+    <div class="panel-sub">Evolucion de Cfinal a traves de las aplicaciones registradas</div>
+    <div class="kpi-tendencia" id="kpi-tendencia"></div>
+    <canvas id="chart-linea" height="220"></canvas>
+  </section>
+
+  <section class="panel">
+    <div class="panel-titulo">Comparativo entre periodos</div>
+    <div class="panel-sub">Cambio por categoria entre dos aplicaciones seleccionadas</div>
+    <div class="selector-comparar">
+      <span>Desde</span>
+      <select id="selector-periodo-a"></select>
+      <span>hasta</span>
+      <select id="selector-periodo-b"></select>
+    </div>
+    <div id="contenedor-comparativo"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-titulo">Historico de aplicaciones</div>
+    <div class="panel-sub">Todas las aplicaciones registradas, mas reciente primero</div>
+    <div id="contenedor-aplicaciones"></div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   MODULO 8 - ADMINISTRADOR: HISTORICO
+   Serie de tiempo de la calificacion global, comparativo entre dos
+   periodos por categoria, y tabla de todas las aplicaciones registradas.
+
+   INTEGRACION SUPABASE (produccion):
+   - Reemplaza SUPABASE_URL / SUPABASE_ANON_KEY.
+   - Lee de una vista agregada sobre encuestas.aplicaciones/calificaciones
+     agrupada por periodo (anonima, nunca cruzada con seguimiento.*).
+
+   MODO DEMO: usa un historico de ejemplo de 5 periodos, coherente con
+   los resultados usados en los Modulos 6 y 7 (el periodo mas reciente,
+   2026-Q3, coincide exactamente).
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabase = null;
+if (!MODO_DEMO) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
+const CATEGORIAS_CATALOGO = [
+  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+];
+
+function colorNivel(nivel) {
+  return { nulo: '#1f8a4c', bajo: '#6fae4a', medio: '#c99a2e', alto: '#e2711d', muy_alto: '#e50d2e' }[nivel] || '#888';
+}
+
+// =======================================================================
+// FUNCIONES PURAS (testeables sin DOM)
+// =======================================================================
+
+function ordenarHistoricoCronologico(historico) {
+  return [...historico].sort((a, b) => a.periodo.localeCompare(b.periodo));
+}
+
+function construirSerieTemporal(historico) {
+  const ordenado = ordenarHistoricoCronologico(historico);
+  return {
+    labels: ordenado.map((h) => h.periodo),
+    valores: ordenado.map((h) => h.global.puntaje),
+    niveles: ordenado.map((h) => h.global.nivel_riesgo),
+  };
+}
+
+function calcularTendenciaGlobal(historico) {
+  const ordenado = ordenarHistoricoCronologico(historico);
+  if (ordenado.length < 2) {
+    return { disponible: false };
+  }
+  const anterior = ordenado[ordenado.length - 2];
+  const actual = ordenado[ordenado.length - 1];
+  const diferencia = actual.global.puntaje - anterior.global.puntaje;
+  return {
+    disponible: true,
+    periodoAnterior: anterior.periodo,
+    periodoActual: actual.periodo,
+    puntajeAnterior: anterior.global.puntaje,
+    puntajeActual: actual.global.puntaje,
+    diferencia: diferencia,
+    tendencia: diferencia < 0 ? 'mejora' : diferencia > 0 ? 'empeora' : 'igual',
+  };
+}
+
+function compararPeriodos(historico, periodoAId, periodoBId) {
+  const aplicacionA = historico.find(function(h){ return h.periodo === periodoAId; });
+  const aplicacionB = historico.find(function(h){ return h.periodo === periodoBId; });
+  if (!aplicacionA || !aplicacionB) return null;
+
+  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
+  const categoriasComparadas = CATEGORIAS_CATALOGO.map(function(cat) {
+    const catA = aplicacionA.porCategoria.find(function(c){ return c.categoria_id === cat.id; });
+    const catB = aplicacionB.porCategoria.find(function(c){ return c.categoria_id === cat.id; });
+    if (!catA || !catB) return null;
+    const diferencia = catB.puntaje - catA.puntaje;
+    return {
+      categoria_id: cat.id,
+      nombre: nombreCategoria.get(cat.id),
+      puntajeA: catA.puntaje,
+      nivelA: catA.nivel_riesgo,
+      puntajeB: catB.puntaje,
+      nivelB: catB.nivel_riesgo,
+      diferencia: diferencia,
+      tendencia: diferencia < 0 ? 'mejora' : diferencia > 0 ? 'empeora' : 'igual',
+      cambioDeNivel: catA.nivel_riesgo !== catB.nivel_riesgo,
+    };
+  }).filter(Boolean);
+
+  const diferenciaGlobal = aplicacionB.global.puntaje - aplicacionA.global.puntaje;
+  return {
+    periodoA: periodoAId,
+    periodoB: periodoBId,
+    globalA: aplicacionA.global,
+    globalB: aplicacionB.global,
+    diferenciaGlobal: diferenciaGlobal,
+    tendenciaGlobal: diferenciaGlobal < 0 ? 'mejora' : diferenciaGlobal > 0 ? 'empeora' : 'igual',
+    categorias: categoriasComparadas,
+  };
+}
+
+// =======================================================================
+// DATOS DEMO (el periodo mas reciente coincide con Modulos 6 y 7)
+// =======================================================================
+function generarHistoricoDemo() {
+  return [
+    {
+      periodo: '2025-Q3', fecha: '2025-09-15', totalRespuestas: 38,
+      global: { puntaje: 132, nivel_riesgo: 'muy_alto' },
+      porCategoria: [
+        { categoria_id: 'CAT_AMBIENTE', puntaje: 9, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_FACTORES', puntaje: 50, nivel_riesgo: 'alto' },
+        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 12, nivel_riesgo: 'muy_alto' },
+        { categoria_id: 'CAT_LIDERAZGO', puntaje: 44, nivel_riesgo: 'alto' },
+        { categoria_id: 'CAT_ENTORNO', puntaje: 21, nivel_riesgo: 'alto' },
+      ],
+    },
+    {
+      periodo: '2025-Q4', fecha: '2025-12-10', totalRespuestas: 40,
+      global: { puntaje: 125, nivel_riesgo: 'alto' },
+      porCategoria: [
+        { categoria_id: 'CAT_AMBIENTE', puntaje: 8, nivel_riesgo: 'bajo' },
+        { categoria_id: 'CAT_FACTORES', puntaje: 47, nivel_riesgo: 'alto' },
+        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 11, nivel_riesgo: 'muy_alto' },
+        { categoria_id: 'CAT_LIDERAZGO', puntaje: 40, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ENTORNO', puntaje: 20, nivel_riesgo: 'alto' },
+      ],
+    },
+    {
+      periodo: '2026-Q1', fecha: '2026-03-12', totalRespuestas: 39,
+      global: { puntaje: 118, nivel_riesgo: 'alto' },
+      porCategoria: [
+        { categoria_id: 'CAT_AMBIENTE', puntaje: 7, nivel_riesgo: 'bajo' },
+        { categoria_id: 'CAT_FACTORES', puntaje: 45, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 11, nivel_riesgo: 'muy_alto' },
+        { categoria_id: 'CAT_LIDERAZGO', puntaje: 37, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
+      ],
+    },
+    {
+      periodo: '2026-Q2', fecha: '2026-06-18', totalRespuestas: 42,
+      global: { puntaje: 115, nivel_riesgo: 'alto' },
+      porCategoria: [
+        { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
+        { categoria_id: 'CAT_FACTORES', puntaje: 43, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
+        { categoria_id: 'CAT_LIDERAZGO', puntaje: 36, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
+      ],
+    },
+    {
+      periodo: '2026-Q3', fecha: '2026-09-14', totalRespuestas: 41,
+      global: { puntaje: 111, nivel_riesgo: 'alto' },
+      porCategoria: [
+        { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
+        { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
+        { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
+        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
+      ],
+    },
+  ];
+}
+
+const estado = { historico: [] };
+window.estado = estado;
+
+// =======================================================================
+// RENDER
+// =======================================================================
+function iconoFlecha(tendencia) {
+  if (tendencia === 'mejora') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M18 6H9M18 6v9"/></svg>';
+  if (tendencia === 'empeora') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 18H9M18 18V9"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14"/></svg>';
+}
+
+function renderTendenciaGlobal() {
+  const t = calcularTendenciaGlobal(estado.historico);
+  const contenedor = document.getElementById('kpi-tendencia');
+  if (!t.disponible) {
+    contenedor.innerHTML = '<span style="color:var(--gris-500);font-size:13px;">Se necesita mas de una aplicacion registrada para calcular una tendencia.</span>';
+    return;
+  }
+  contenedor.innerHTML =
+    '<div class="cifra">' + t.puntajeActual + '</div>' +
+    '<span class="flecha ' + t.tendencia + '">' + iconoFlecha(t.tendencia) + (t.diferencia > 0 ? '+' : '') + t.diferencia + ' vs ' + t.periodoAnterior + '</span>';
+}
+
+let chartLineaInstancia = null;
+function renderLinea() {
+  const serie = construirSerieTemporal(estado.historico);
+  const canvas = document.getElementById('chart-linea');
+  if (chartLineaInstancia) chartLineaInstancia.destroy();
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  if (!ctx || typeof window.Chart === 'undefined') return;
+  chartLineaInstancia = new window.Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: serie.labels,
+      datasets: [{
+        label: 'Calificacion global (Cfinal)',
+        data: serie.valores,
+        borderColor: '#e50d2e',
+        backgroundColor: 'rgba(229,13,46,0.08)',
+        pointBackgroundColor: serie.niveles.map(colorNivel),
+        pointRadius: 5,
+        tension: 0.25,
+        fill: true,
+      }],
+    },
+    options: { plugins: { legend: { display: false } } },
+  });
+}
+
+function renderSelectoresPeriodo() {
+  const ordenado = ordenarHistoricoCronologico(estado.historico);
+  const selA = document.getElementById('selector-periodo-a');
+  const selB = document.getElementById('selector-periodo-b');
+  const opciones = ordenado.map(function(h){ return '<option value="' + h.periodo + '">' + h.periodo + '</option>'; }).join('');
+  selA.innerHTML = opciones;
+  selB.innerHTML = opciones;
+  selA.value = ordenado[0].periodo;
+  selB.value = ordenado[ordenado.length - 1].periodo;
+}
+
+function renderComparativo() {
+  const periodoA = document.getElementById('selector-periodo-a').value;
+  const periodoB = document.getElementById('selector-periodo-b').value;
+  const comparativo = compararPeriodos(estado.historico, periodoA, periodoB);
+  const contenedor = document.getElementById('contenedor-comparativo');
+
+  if (!comparativo) {
+    contenedor.innerHTML = '<div style="color:var(--gris-500);font-size:13px;">Selecciona dos periodos validos para comparar.</div>';
+    return;
+  }
+
+  const filaGlobal =
+    '<tr style="font-weight:700;">' +
+    '<td>Calificacion global</td>' +
+    '<td>' + comparativo.globalA.puntaje + ' (' + NIVEL_ETIQUETA[comparativo.globalA.nivel_riesgo] + ')</td>' +
+    '<td>' + comparativo.globalB.puntaje + ' (' + NIVEL_ETIQUETA[comparativo.globalB.nivel_riesgo] + ')</td>' +
+    '<td><span class="flecha ' + comparativo.tendenciaGlobal + '">' + iconoFlecha(comparativo.tendenciaGlobal) + (comparativo.diferenciaGlobal > 0 ? '+' : '') + comparativo.diferenciaGlobal + '</span></td>' +
+    '</tr>';
+
+  const filasCategorias = comparativo.categorias.map(function(c) {
+    return '<tr>' +
+    '<td>' + c.nombre + (c.cambioDeNivel ? ' <span style="color:var(--gris-500);font-size:11px;">(cambio de nivel)</span>' : '') + '</td>' +
+    '<td>' + c.puntajeA + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelA) + '22;color:' + colorNivel(c.nivelA) + ';">' + NIVEL_ETIQUETA[c.nivelA] + '</span></td>' +
+    '<td>' + c.puntajeB + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelB) + '22;color:' + colorNivel(c.nivelB) + ';">' + NIVEL_ETIQUETA[c.nivelB] + '</span></td>' +
+    '<td><span class="flecha ' + c.tendencia + '">' + iconoFlecha(c.tendencia) + (c.diferencia > 0 ? '+' : '') + c.diferencia + '</span></td>' +
+    '</tr>';
+  }).join('');
+
+  contenedor.innerHTML =
+    '<table class="tabla-comparativo"><thead><tr>' +
+    '<th>Categoria</th><th>' + periodoA + '</th><th>' + periodoB + '</th><th>Cambio</th>' +
+    '</tr></thead><tbody>' + filaGlobal + filasCategorias + '</tbody></table>';
+}
+
+function renderTablaAplicaciones() {
+  const ordenadoDesc = estado.historico.slice().sort(function(a, b){ return b.periodo.localeCompare(a.periodo); });
+  const contenedor = document.getElementById('contenedor-aplicaciones');
+  const filas = ordenadoDesc.map(function(h) {
+    return '<tr>' +
+    '<td>' + h.periodo + '</td>' +
+    '<td>' + h.fecha + '</td>' +
+    '<td>' + h.totalRespuestas + '</td>' +
+    '<td>' + h.global.puntaje + '</td>' +
+    '<td><span class="badge-nivel" style="background:' + colorNivel(h.global.nivel_riesgo) + '22;color:' + colorNivel(h.global.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[h.global.nivel_riesgo] + '</span></td>' +
+    '</tr>';
+  }).join('');
+  contenedor.innerHTML =
+    '<table class="tabla-aplicaciones"><thead><tr><th>Periodo</th><th>Fecha</th><th>Respuestas</th><th>Cfinal</th><th>Nivel</th></tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+function renderTodo() {
+  renderTendenciaGlobal();
+  renderLinea();
+  renderSelectoresPeriodo();
+  renderComparativo();
+  renderTablaAplicaciones();
+}
+
+function inicializarEventos() {
+  document.getElementById('selector-periodo-a').addEventListener('change', renderComparativo);
+  document.getElementById('selector-periodo-b').addEventListener('change', renderComparativo);
+}
+
+async function cargarHistorico() {
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').style.display = 'inline-block';
+    estado.historico = generarHistoricoDemo();
+    return;
+  }
+  const resp = await supabase.rpc('obtener_historico_aplicaciones');
+  if (resp.error) { console.error(resp.error); return; }
+  estado.historico = resp.data || [];
+}
+
+async function iniciar() {
+  await cargarHistorico();
+  renderTodo();
+  inicializarEventos();
+}
+iniciar();
+</script>
+</body>
+</html>

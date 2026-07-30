@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Riverline · Encuesta NOM-035</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --rojo:#e50d2e;
+    --rojo-oscuro:#b80a24;
+    --negro:#15161a;
+    --gris-900:#1f2128;
+    --gris-700:#4a4d57;
+    --gris-500:#666973;
+    --gris-200:#e7e8ec;
+    --gris-100:#f4f4f7;
+    --blanco:#ffffff;
+    --verde-ok:#1f8a4c;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --shadow-card: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font);
+    background:var(--gris-100);
+    color:var(--negro);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    max-width:720px;
+    width:100%;
+    margin:0 auto;
+    padding:0 20px;
+  }
+  header.topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:22px 0 18px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:800;
+    font-size:15px;
+    letter-spacing:.2px;
+  }
+  .brand-mark{
+    width:10px;height:10px;border-radius:3px;background:var(--rojo);
+    transform:rotate(45deg);
+    flex-shrink:0;
+  }
+  .brand small{
+    display:block;
+    font-weight:500;
+    font-size:11px;
+    color:var(--gris-500);
+    letter-spacing:.3px;
+  }
+  .pill-confidencial{
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--verde-ok);
+    background:#e8f6ee;
+    padding:6px 11px;
+    border-radius:100px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .pill-confidencial svg{width:12px;height:12px;}
+
+  main{flex:1; display:flex; flex-direction:column; padding-bottom:40px;}
+
+  .card{
+    background:var(--blanco);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-card);
+    padding:32px 28px;
+  }
+  @media (max-width:520px){
+    .card{padding:24px 20px; border-radius:var(--radius-md);}
+  }
+
+  /* ---------- LOGIN ---------- */
+  .screen-login .card{ margin-top:8vh; }
+  h1.titulo{
+    font-size:24px;
+    font-weight:800;
+    margin:0 0 6px;
+    letter-spacing:-.01em;
+  }
+  p.subtitulo{
+    color:var(--gris-700);
+    font-size:14.5px;
+    line-height:1.5;
+    margin:0 0 24px;
+  }
+  label.campo-label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--gris-900);
+    margin-bottom:7px;
+  }
+  input.campo-input{
+    width:100%;
+    padding:14px 16px;
+    border-radius:var(--radius-sm);
+    border:1.5px solid var(--gris-200);
+    font-family:var(--font);
+    font-size:16px;
+    background:var(--gris-100);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  input.campo-input:focus{
+    outline:none;
+    border-color:var(--rojo);
+    background:var(--blanco);
+  }
+  .campo-grupo{margin-bottom:18px;}
+  .btn{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    font-family:var(--font);
+    font-weight:700;
+    font-size:15px;
+    border-radius:var(--radius-sm);
+    padding:15px 22px;
+    transition:transform .12s ease, opacity .12s ease, background .15s ease;
+  }
+  .btn:active{ transform:scale(.98); }
+  .btn-primario{
+    background:var(--rojo);
+    color:var(--blanco);
+    width:100%;
+  }
+  .btn-primario:hover{ background:var(--rojo-oscuro); }
+  .btn-primario:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-secundario{
+    background:transparent;
+    color:var(--gris-700);
+    border:1.5px solid var(--gris-200);
+  }
+  .btn-secundario:hover{ background:var(--gris-100); }
+  .error-msg{
+    color:var(--rojo);
+    font-size:13.5px;
+    font-weight:600;
+    margin-top:10px;
+    display:none;
+  }
+  .error-msg.visible{display:block;}
+
+  /* ---------- BIENVENIDA ---------- */
+  .lista-check{ list-style:none; margin:0 0 26px; padding:0; display:flex; flex-direction:column; gap:14px;}
+  .lista-check li{ display:flex; gap:12px; align-items:flex-start; font-size:14.5px; color:var(--gris-900); line-height:1.45;}
+  .lista-check .icono{
+    flex-shrink:0; width:26px;height:26px;border-radius:8px;
+    background:var(--gris-100); display:flex;align-items:center;justify-content:center;
+    color:var(--rojo);
+  }
+  .lista-check .icono svg{width:14px;height:14px;}
+
+  /* ---------- ENCUESTA ---------- */
+  .barra-progreso-wrap{
+    padding:16px 0 10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .barra-progreso-fila{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; color:var(--gris-500); font-weight:600;
+  }
+  .barra-progreso-track{
+    width:100%; height:6px; background:var(--gris-200); border-radius:100px; overflow:hidden;
+  }
+  .barra-progreso-fill{
+    height:100%; background:var(--rojo); border-radius:100px;
+    transition:width .35s ease;
+  }
+  .seccion-encabezado{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--rojo);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-bottom:8px;
+  }
+  .reactivo-texto{
+    font-size:20px;
+    font-weight:700;
+    line-height:1.35;
+    margin:0 0 26px;
+    letter-spacing:-.01em;
+  }
+  fieldset.opciones{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    border:none;
+    margin:0;
+    padding:0;
+  }
+  legend.reactivo-texto{
+    padding:0;
+    width:100%;
+  }
+  .opcion{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:15px 16px;
+    border-radius:var(--radius-sm);
+    border:1.5px solid var(--gris-200);
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
+    font-size:15px;
+    font-weight:600;
+    color:var(--gris-900);
+    position:relative;
+  }
+  .opcion input[type="radio"]{
+    position:absolute;
+    opacity:0;
+    width:1px;
+    height:1px;
+    margin:0;
+    pointer-events:none;
+  }
+  .opcion:hover{ border-color:var(--gris-500); }
+  .opcion.seleccionada{
+    border-color:var(--rojo);
+    background:#fdf1f2;
+    color:var(--rojo-oscuro);
+  }
+  .opcion:focus-within{
+    outline:2px solid var(--rojo);
+    outline-offset:2px;
+  }
+  .opcion .radio-visual{
+    width:19px;height:19px;border-radius:50%;
+    border:2px solid var(--gris-200);
+    flex-shrink:0;
+    position:relative;
+  }
+  .opcion.seleccionada .radio-visual{ border-color:var(--rojo); }
+  .opcion.seleccionada .radio-visual::after{
+    content:'';
+    position:absolute; inset:3px;
+    border-radius:50%;
+    background:var(--rojo);
+  }
+  .pregunta-si-no .opciones{ flex-direction:row; }
+  .pregunta-si-no .opcion{ flex:1; justify-content:center; }
+
+  .nav-encuesta{
+    display:flex;
+    gap:12px;
+    margin-top:28px;
+  }
+  .nav-encuesta .btn-secundario{ flex:0 0 auto; padding:15px 18px; }
+  .nav-encuesta .btn-primario{ flex:1; }
+
+  .footer-guardado{
+    text-align:center;
+    font-size:12px;
+    color:var(--gris-500);
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+  }
+  .footer-guardado svg{width:12px;height:12px;}
+
+  /* ---------- GRACIAS ---------- */
+  .screen-gracias .card{ text-align:center; margin-top:8vh; }
+  .icono-check-grande{
+    width:64px;height:64px;border-radius:50%;
+    background:#e8f6ee;color:var(--verde-ok);
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 20px;
+  }
+  .icono-check-grande svg{ width:30px;height:30px; }
+
+  .oculto{ display:none !important; }
+
+  @media (prefers-color-scheme: dark){
+    :root{
+      --gris-100:#121317;
+      --gris-200:#26282f;
+      --blanco:#1b1c22;
+      --negro:#f2f2f4;
+      --gris-900:#eceeF1;
+      --gris-700:#b7b9c2;
+      --gris-500:#848790;
+    }
+    body{ background:#0c0d10; }
+    .pill-confidencial{ background:#123420; }
+    .opcion.seleccionada{ background:#301419; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Cultura Riverline · NOM-035</small></span>
+    </div>
+    <div class="pill-confidencial">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg>
+      100% anónima
+    </div>
+  </header>
+
+  <main id="main"></main>
+</div>
+
+<script type="module">
+/* =====================================================================
+   MÓDULO 4 — COLABORADOR
+   Login → Bienvenida → Encuesta (Guía III) → Cierre
+   =====================================================================
+
+   INTEGRACIÓN CON SUPABASE (producción):
+   1) Reemplaza SUPABASE_URL y SUPABASE_ANON_KEY abajo con las de tu
+      proyecto.
+   2) Crea la Edge Function "finalize-survey" (ver archivo
+      finalize-survey.ts entregado junto con este módulo) que:
+        a) valida el código de colaborador contra seguimiento.colaboradores
+        b) ejecuta el motor de calificación (scoring-engine.js, Módulo 3)
+        c) escribe en encuestas.* (anónimo) y en seguimiento.* (status)
+           en dos escrituras independientes, sin exponer el vínculo.
+   3) La tabla catalogo.reactivos debe estar cargada (ver Módulo 2).
+      Este archivo trae una copia local de los 72 reactivos oficiales
+      como resiliencia offline / para poder probar sin conexión; en
+      producción, si Supabase está configurado, los reactivos se leen
+      en vivo de catalogo.reactivos (fuente única de verdad).
+
+   MODO DEMO:
+   Si no configuras SUPABASE_URL/KEY, la app corre en modo demo: usa un
+   padrón de colaboradores de ejemplo y guarda todo en localStorage, sin
+   tocar ningún backend. Sirve para probar el flujo completo de inmediato.
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabase = null;
+if (!MODO_DEMO) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ---------------------------------------------------------------------
+// Padrón de ejemplo para modo demo (nunca se usa si Supabase está
+// configurado correctamente).
+// ---------------------------------------------------------------------
+const PADRON_DEMO = [
+  { id: 'demo-001', codigo: '1001', nombre: 'Colaborador de prueba', status: 'no_contesto' },
+  { id: 'demo-002', codigo: '1002', nombre: 'Colaboradora de prueba', status: 'no_contesto' },
+];
+
+// ---------------------------------------------------------------------
+// Catálogo local (fallback / resiliencia offline). 72 reactivos oficiales,
+// Guía de Referencia III, NOM-035-STPS-2018 (DOF, 23/oct/2018).
+// Cada bloque respeta el encabezado de sección y el orden oficial.
+// ---------------------------------------------------------------------
+const SECCIONES = [
+  { encabezado: 'Para responder las preguntas siguientes considere las condiciones ambientales de su centro de trabajo.', items: [1,2,3,4,5] },
+  { encabezado: 'Para responder a las preguntas siguientes piense en la cantidad y ritmo de trabajo que tiene.', items: [6,7,8] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con el esfuerzo mental que le exige su trabajo.', items: [9,10,11,12] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con las actividades que realiza en su trabajo y las responsabilidades que tiene.', items: [13,14,15,16] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con su jornada de trabajo.', items: [17,18,19,20,21,22] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con las decisiones que puede tomar en su trabajo.', items: [23,24,25,26,27,28] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con cualquier tipo de cambio que ocurra en su trabajo (considere los últimos cambios realizados).', items: [29,30] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con la capacitación e información que se le proporciona sobre su trabajo.', items: [31,32,33,34,35,36] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con el o los jefes con quien tiene contacto.', items: [37,38,39,40,41] },
+  { encabezado: 'Las preguntas siguientes se refieren a las relaciones con sus compañeros.', items: [42,43,44,45,46] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con la información que recibe sobre su rendimiento en el trabajo, el reconocimiento, el sentido de pertenencia y la estabilidad que le ofrece su trabajo.', items: [47,48,49,50,51,52,53,54,55,56] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con actos de violencia laboral (malos tratos, acoso, hostigamiento, acoso psicológico).', items: [57,58,59,60,61,62,63,64] },
+];
+
+const TEXTOS = {
+  1:'El espacio donde trabajo me permite realizar mis actividades de manera segura e higiénica',
+  2:'Mi trabajo me exige hacer mucho esfuerzo físico',
+  3:'Me preocupa sufrir un accidente en mi trabajo',
+  4:'Considero que en mi trabajo se aplican las normas de seguridad y salud en el trabajo',
+  5:'Considero que las actividades que realizo son peligrosas',
+  6:'Por la cantidad de trabajo que tengo debo quedarme tiempo adicional a mi turno',
+  7:'Por la cantidad de trabajo que tengo debo trabajar sin parar',
+  8:'Considero que es necesario mantener un ritmo de trabajo acelerado',
+  9:'Mi trabajo exige que esté muy concentrado',
+  10:'Mi trabajo requiere que memorice mucha información',
+  11:'En mi trabajo tengo que tomar decisiones difíciles muy rápido',
+  12:'Mi trabajo exige que atienda varios asuntos al mismo tiempo',
+  13:'En mi trabajo soy responsable de cosas de mucho valor',
+  14:'Respondo ante mi jefe por los resultados de toda mi área de trabajo',
+  15:'En el trabajo me dan órdenes contradictorias',
+  16:'Considero que en mi trabajo me piden hacer cosas innecesarias',
+  17:'Trabajo horas extras más de tres veces a la semana',
+  18:'Mi trabajo me exige laborar en días de descanso, festivos o fines de semana',
+  19:'Considero que el tiempo en el trabajo es mucho y perjudica mis actividades familiares o personales',
+  20:'Debo atender asuntos de trabajo cuando estoy en casa',
+  21:'Pienso en las actividades familiares o personales cuando estoy en mi trabajo',
+  22:'Pienso que mis responsabilidades familiares afectan mi trabajo',
+  23:'Mi trabajo permite que desarrolle nuevas habilidades',
+  24:'En mi trabajo puedo aspirar a un mejor puesto',
+  25:'Durante mi jornada de trabajo puedo tomar pausas cuando las necesito',
+  26:'Puedo decidir cuánto trabajo realizo durante la jornada laboral',
+  27:'Puedo decidir la velocidad a la que realizo mis actividades en mi trabajo',
+  28:'Puedo cambiar el orden de las actividades que realizo en mi trabajo',
+  29:'Los cambios que se presentan en mi trabajo dificultan mi labor',
+  30:'Cuando se presentan cambios en mi trabajo se tienen en cuenta mis ideas o aportaciones',
+  31:'Me informan con claridad cuáles son mis funciones',
+  32:'Me explican claramente los resultados que debo obtener en mi trabajo',
+  33:'Me explican claramente los objetivos de mi trabajo',
+  34:'Me informan con quién puedo resolver problemas o asuntos de trabajo',
+  35:'Me permiten asistir a capacitaciones relacionadas con mi trabajo',
+  36:'Recibo capacitación útil para hacer mi trabajo',
+  37:'Mi jefe ayuda a organizar mejor el trabajo',
+  38:'Mi jefe tiene en cuenta mis puntos de vista y opiniones',
+  39:'Mi jefe me comunica a tiempo la información relacionada con el trabajo',
+  40:'La orientación que me da mi jefe me ayuda a realizar mejor mi trabajo',
+  41:'Mi jefe ayuda a solucionar los problemas que se presentan en el trabajo',
+  42:'Puedo confiar en mis compañeros de trabajo',
+  43:'Entre compañeros solucionamos los problemas de trabajo de forma respetuosa',
+  44:'En mi trabajo me hacen sentir parte del grupo',
+  45:'Cuando tenemos que realizar trabajo de equipo los compañeros colaboran',
+  46:'Mis compañeros de trabajo me ayudan cuando tengo dificultades',
+  47:'Me informan sobre lo que hago bien en mi trabajo',
+  48:'La forma como evalúan mi trabajo en mi centro de trabajo me ayuda a mejorar mi desempeño',
+  49:'En mi centro de trabajo me pagan a tiempo mi salario',
+  50:'El pago que recibo es el que merezco por el trabajo que realizo',
+  51:'Si obtengo los resultados esperados en mi trabajo me recompensan o reconocen',
+  52:'Las personas que hacen bien el trabajo pueden crecer laboralmente',
+  53:'Considero que mi trabajo es estable',
+  54:'En mi trabajo existe continua rotación de personal',
+  55:'Siento orgullo de laborar en este centro de trabajo',
+  56:'Me siento comprometido con mi trabajo',
+  57:'En mi trabajo puedo expresarme libremente sin interrupciones',
+  58:'Recibo críticas constantes a mi persona y/o trabajo',
+  59:'Recibo burlas, calumnias, difamaciones, humillaciones o ridiculizaciones',
+  60:'Se ignora mi presencia o se me excluye de las reuniones de trabajo y en la toma de decisiones',
+  61:'Se manipulan las situaciones de trabajo para hacerme parecer un mal trabajador',
+  62:'Se ignoran mis éxitos laborales y se atribuyen a otros trabajadores',
+  63:'Me bloquean o impiden las oportunidades que tengo para obtener ascenso o mejora en mi trabajo',
+  64:'He presenciado actos de violencia en mi centro de trabajo',
+  65:'Atiendo clientes o usuarios muy enojados',
+  66:'Mi trabajo me exige atender personas muy necesitadas de ayuda o enfermas',
+  67:'Para hacer mi trabajo debo demostrar sentimientos distintos a los míos',
+  68:'Mi trabajo me exige atender situaciones de violencia',
+  69:'Comunican tarde los asuntos de trabajo',
+  70:'Dificultan el logro de los resultados del trabajo',
+  71:'Cooperan poco cuando se necesita',
+  72:'Ignoran las sugerencias para mejorar su trabajo',
+};
+
+const SECCION_CLIENTES = { encabezado: 'Las preguntas siguientes están relacionadas con la atención a clientes y usuarios.', items:[65,66,67,68] };
+const SECCION_JEFE = { encabezado: 'Las siguientes preguntas están relacionadas con las actitudes de las personas que supervisa.', items:[69,70,71,72] };
+
+const ESCALA = ['Siempre', 'Casi siempre', 'Algunas veces', 'Casi nunca', 'Nunca'];
+
+// ---------------------------------------------------------------------
+// Estado de la aplicación
+// ---------------------------------------------------------------------
+const estado = {
+  pantalla: 'login',
+  colaborador: null,       // { id, codigo, nombre }
+  inicio: null,            // timestamp de inicio de la encuesta
+  atiendeClientes: null,   // true/false/null
+  esJefe: null,            // true/false/null
+  respuestas: {},          // { [numeroReactivo]: indice(0-4) }
+  pasoActual: 0,           // índice dentro de la lista lineal de "pasos"
+};
+
+const main = document.getElementById('main');
+
+// ---------------------------------------------------------------------
+// Construcción de la lista lineal de pasos de la encuesta:
+// cada "paso" es una sección de reactivos, o una pregunta Sí/No de bifurcación.
+// ---------------------------------------------------------------------
+function construirPasos() {
+  const pasos = [...SECCIONES.map((s) => ({ tipo: 'seccion', ...s }))];
+  pasos.push({ tipo: 'sino', clave: 'atiendeClientes', texto: 'En mi trabajo debo brindar servicio a clientes o usuarios:' });
+  pasos.push({ tipo: 'seccion', condicion: 'atiendeClientes', ...SECCION_CLIENTES });
+  pasos.push({ tipo: 'sino', clave: 'esJefe', texto: 'Soy jefe de otros trabajadores:' });
+  pasos.push({ tipo: 'seccion', condicion: 'esJefe', ...SECCION_JEFE });
+  return pasos;
+}
+const PASOS = construirPasos();
+
+function pasoAplica(paso) {
+  if (!paso.condicion) return true;
+  return estado[paso.condicion] === true;
+}
+
+function totalReactivosAplicables() {
+  let total = 0;
+  for (const p of PASOS) {
+    if (p.tipo === 'seccion' && pasoAplica(p)) total += p.items.length;
+  }
+  return total;
+}
+function reactivosRespondidos() {
+  return Object.keys(estado.respuestas).length;
+}
+
+// ---------------------------------------------------------------------
+// Persistencia local (buffer de autoguardado, por colaborador)
+// ---------------------------------------------------------------------
+function claveBuffer() {
+  return `nom035_buffer_${estado.colaborador.codigo}`;
+}
+function guardarBuffer() {
+  const payload = {
+    inicio: estado.inicio,
+    atiendeClientes: estado.atiendeClientes,
+    esJefe: estado.esJefe,
+    respuestas: estado.respuestas,
+    pasoActual: estado.pasoActual,
+  };
+  localStorage.setItem(claveBuffer(), JSON.stringify(payload));
+
+  // En producción: además de guardar localmente, se puede sincronizar
+  // el avance contra una tabla temporal en Supabase (seguimiento.buffer_respuestas)
+  // para permitir reanudar desde otro dispositivo. Ver nota de arquitectura:
+  // ese buffer se elimina por completo al finalizar (Edge Function finalize-survey).
+  if (supabase) {
+    supabase.from('seguimiento_buffer_respuestas')
+      .upsert({ colaborador_id: estado.colaborador.id, payload, actualizado_en: new Date().toISOString() })
+      .then(() => {})
+      .catch(() => { /* fallo silencioso: el buffer local ya lo protege */ });
+  }
+}
+function recuperarBuffer(codigo) {
+  const raw = localStorage.getItem(`nom035_buffer_${codigo}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+function borrarBuffer() {
+  localStorage.removeItem(claveBuffer());
+}
+
+// ---------------------------------------------------------------------
+// Login
+// ---------------------------------------------------------------------
+async function buscarColaborador(codigo) {
+  if (MODO_DEMO) {
+    const encontrado = PADRON_DEMO.find((c) => c.codigo === codigo.trim());
+    return encontrado || null;
+  }
+  // Nota: en producción, este RPC (ver Módulo 9) es la ÚNICA forma en que el
+  // navegador del colaborador puede tocar seguimiento.colaboradores. Regresa
+  // solo id/nombre/status — nunca email, puesto o departamento.
+  const { data, error } = await supabase
+    .rpc('colaborador_buscar', { p_codigo: codigo.trim() })
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function marcarAcceso(colaboradorId) {
+  if (MODO_DEMO) return;
+  await supabase.rpc('marcar_acceso_colaborador', { p_colaborador_id: colaboradorId })
+    .catch(() => {});
+}
+
+function renderLogin() {
+  main.innerHTML = `
+    <div class="screen-login">
+      <div class="card">
+        <h1 class="titulo">Encuesta NOM-035</h1>
+        <p class="subtitulo">Ingresa tu código de colaborador para comenzar. Este código solo se usa para registrar que ya respondiste — tus respuestas nunca se vinculan a tu identidad.</p>
+        <div class="campo-grupo">
+          <label class="campo-label" for="input-codigo">Código de colaborador</label>
+          <input id="input-codigo" class="campo-input" type="text" inputmode="numeric" placeholder="Ej. 1001" autocomplete="off" />
+        </div>
+        <button id="btn-entrar" class="btn btn-primario">Continuar</button>
+        <p id="error-login" class="error-msg"></p>
+      </div>
+    </div>
+  `;
+  const input = document.getElementById('input-codigo');
+  const boton = document.getElementById('btn-entrar');
+  const error = document.getElementById('error-login');
+
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') boton.click(); });
+
+  boton.addEventListener('click', async () => {
+    const codigo = input.value.trim();
+    if (!codigo) return;
+    boton.disabled = true;
+    boton.textContent = 'Verificando…';
+    error.classList.remove('visible');
+    try {
+      const colaborador = await buscarColaborador(codigo);
+      if (!colaborador) {
+        error.textContent = 'No encontramos ese código. Verifica con Desarrollo Humano.';
+        error.classList.add('visible');
+        boton.disabled = false;
+        boton.textContent = 'Continuar';
+        return;
+      }
+      if (colaborador.status === 'contesto') {
+        error.textContent = 'Este código ya registró una encuesta contestada.';
+        error.classList.add('visible');
+        boton.disabled = false;
+        boton.textContent = 'Continuar';
+        return;
+      }
+      estado.colaborador = Object.assign({ codigo: codigo.trim() }, colaborador);
+      await marcarAcceso(colaborador.id);
+
+      const buffer = recuperarBuffer(estado.colaborador.codigo);
+      if (buffer) {
+        estado.inicio = buffer.inicio;
+        estado.atiendeClientes = buffer.atiendeClientes;
+        estado.esJefe = buffer.esJefe;
+        estado.respuestas = buffer.respuestas;
+        estado.pasoActual = buffer.pasoActual;
+        estado.pantalla = 'encuesta';
+        renderEncuesta();
+      } else {
+        estado.pantalla = 'bienvenida';
+        renderBienvenida();
+      }
+    } catch (e) {
+      error.textContent = 'Ocurrió un problema al verificar tu código. Intenta de nuevo.';
+      error.classList.add('visible');
+      boton.disabled = false;
+      boton.textContent = 'Continuar';
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Bienvenida
+// ---------------------------------------------------------------------
+function renderBienvenida() {
+  main.innerHTML = `
+    <div class="screen-bienvenida">
+      <div class="card">
+        <h1 class="titulo">Antes de comenzar</h1>
+        <p class="subtitulo">Esta encuesta identifica los factores de riesgo psicosocial en el trabajo y evalúa el entorno organizacional, conforme a la NOM-035-STPS-2018.</p>
+        <ul class="lista-check">
+          <li><span class="icono">${iconoCheck()}</span> Tus respuestas son completamente anónimas. Nunca se guarda tu nombre junto con lo que respondas.</li>
+          <li><span class="icono">${iconoCheck()}</span> Solo se registra que ya contestaste — jamás qué contestaste.</li>
+          <li><span class="icono">${iconoReloj()}</span> Toma entre 10 y 15 minutos. Puedes cerrar el navegador y continuar después donde te quedaste.</li>
+          <li><span class="icono">${iconoCheck()}</span> No hay respuestas correctas o incorrectas. Responde con sinceridad, pensando en los últimos dos meses.</li>
+        </ul>
+        <button id="btn-comenzar" class="btn btn-primario">Comenzar encuesta</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-comenzar').addEventListener('click', () => {
+    estado.inicio = Date.now();
+    estado.pasoActual = 0;
+    estado.pantalla = 'encuesta';
+    guardarBuffer();
+    renderEncuesta();
+  });
+}
+
+function iconoCheck(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>`; }
+function iconoReloj(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`; }
+
+// ---------------------------------------------------------------------
+// Encuesta
+// ---------------------------------------------------------------------
+function pasoVisibleSiguiente(desde, direccion) {
+  let i = desde;
+  while (i >= 0 && i < PASOS.length) {
+    if (pasoAplica(PASOS[i])) return i;
+    i += direccion;
+  }
+  return direccion > 0 ? PASOS.length : -1;
+}
+
+function renderEncuesta() {
+  // Asegura que el paso actual sea uno visible (por si venimos de un buffer
+  // guardado antes de contestar la bifurcación).
+  estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual, 1);
+  if (estado.pasoActual >= PASOS.length) { return renderRevision(); }
+
+  const paso = PASOS[estado.pasoActual];
+  const respondidos = reactivosRespondidos();
+  const total = totalReactivosAplicables();
+  const porcentaje = total > 0 ? Math.round((respondidos / total) * 100) : 0;
+
+  if (paso.tipo === 'sino') return renderPasoSiNo(paso, porcentaje);
+  return renderPasoSeccion(paso, porcentaje);
+}
+
+function renderBarra(porcentaje) {
+  return `
+    <div class="barra-progreso-wrap">
+      <div class="barra-progreso-fila">
+        <span>${porcentaje}% completado</span>
+        <span id="cronometro">00:00</span>
+      </div>
+      <div class="barra-progreso-track"><div class="barra-progreso-fill" style="width:${porcentaje}%"></div></div>
+    </div>
+  `;
+}
+
+function iniciarCronometro() {
+  const el = document.getElementById('cronometro');
+  if (!el) return;
+  clearInterval(window.__cronoInterval);
+  window.__cronoInterval = setInterval(() => {
+    const seg = Math.floor((Date.now() - estado.inicio) / 1000);
+    const mm = String(Math.floor(seg / 60)).padStart(2, '0');
+    const ss = String(seg % 60).padStart(2, '0');
+    const target = document.getElementById('cronometro');
+    if (target) target.textContent = `${mm}:${ss}`;
+  }, 1000);
+}
+
+function renderPasoSiNo(paso, porcentaje) {
+  const valorActual = estado[paso.clave];
+  main.innerHTML = `
+    ${renderBarra(porcentaje)}
+    <div class="card pregunta-si-no">
+      <fieldset class="opciones">
+        <legend class="reactivo-texto" style="font-size:19px;">${paso.texto}</legend>
+        <label class="opcion ${valorActual === true ? 'seleccionada' : ''}">
+          <input type="radio" name="pregunta-sino" value="si" ${valorActual === true ? 'checked' : ''} />
+          <span class="radio-visual" aria-hidden="true"></span> Sí
+        </label>
+        <label class="opcion ${valorActual === false ? 'seleccionada' : ''}">
+          <input type="radio" name="pregunta-sino" value="no" ${valorActual === false ? 'checked' : ''} />
+          <span class="radio-visual" aria-hidden="true"></span> No
+        </label>
+      </fieldset>
+      <div class="nav-encuesta">
+        <button class="btn btn-secundario" id="btn-atras">Atrás</button>
+        <button class="btn btn-primario" id="btn-siguiente" ${valorActual === null ? 'disabled' : ''}>Siguiente</button>
+      </div>
+    </div>
+    <p class="footer-guardado">${iconoNube()} Guardado automáticamente</p>
+  `;
+  iniciarCronometro();
+
+  document.querySelectorAll('input[name="pregunta-sino"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      estado[paso.clave] = input.value === 'si';
+      guardarBuffer();
+      renderPasoSiNo(paso, porcentaje);
+    });
+  });
+  document.getElementById('btn-siguiente').addEventListener('click', () => {
+    estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual + 1, 1);
+    guardarBuffer();
+    renderEncuesta();
+  });
+  document.getElementById('btn-atras').addEventListener('click', () => {
+    estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual - 1, -1);
+    if (estado.pasoActual < 0) { estado.pasoActual = 0; return renderBienvenida(); }
+    renderEncuesta();
+  });
+}
+
+// Cada sección se responde reactivo por reactivo dentro del mismo paso,
+// para mantener la barra de progreso y el encabezado de sección visibles.
+function renderPasoSeccion(paso, porcentaje, indiceItemLocal = 0) {
+  const numero = paso.items[indiceItemLocal];
+  const respuestaActual = estado.respuestas[numero];
+
+  main.innerHTML = `
+    ${renderBarra(Math.round((reactivosRespondidos() / totalReactivosAplicables()) * 100))}
+    <div class="card">
+      <p class="seccion-encabezado">${paso.encabezado}</p>
+      <fieldset class="opciones">
+        <legend class="reactivo-texto">${TEXTOS[numero]}</legend>
+        ${ESCALA.map((texto, idx) => `
+          <label class="opcion ${respuestaActual === idx ? 'seleccionada' : ''}">
+            <input type="radio" name="reactivo-${numero}" value="${idx}" ${respuestaActual === idx ? 'checked' : ''} />
+            <span class="radio-visual" aria-hidden="true"></span> ${texto}
+          </label>
+        `).join('')}
+      </fieldset>
+      <div class="nav-encuesta">
+        <button class="btn btn-secundario" id="btn-atras">Atrás</button>
+        <button class="btn btn-primario" id="btn-siguiente" ${respuestaActual === undefined ? 'disabled' : ''}>Siguiente</button>
+      </div>
+    </div>
+    <p class="footer-guardado">${iconoNube()} Guardado automáticamente</p>
+  `;
+  iniciarCronometro();
+
+  document.querySelectorAll(`input[name="reactivo-${numero}"]`).forEach((input) => {
+    input.addEventListener('change', () => {
+      estado.respuestas[numero] = Number(input.value);
+      guardarBuffer();
+      renderPasoSeccion(paso, porcentaje, indiceItemLocal);
+    });
+  });
+
+  document.getElementById('btn-siguiente').addEventListener('click', () => {
+    if (indiceItemLocal + 1 < paso.items.length) {
+      renderPasoSeccion(paso, porcentaje, indiceItemLocal + 1);
+    } else {
+      estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual + 1, 1);
+      guardarBuffer();
+      renderEncuesta();
+    }
+  });
+
+  document.getElementById('btn-atras').addEventListener('click', () => {
+    if (indiceItemLocal > 0) {
+      renderPasoSeccion(paso, porcentaje, indiceItemLocal - 1);
+    } else {
+      const anterior = pasoVisibleSiguiente(estado.pasoActual - 1, -1);
+      if (anterior < 0) { return renderBienvenida(); }
+      estado.pasoActual = anterior;
+      const pasoAnterior = PASOS[anterior];
+      if (pasoAnterior.tipo === 'seccion') {
+        renderPasoSeccion(pasoAnterior, porcentaje, pasoAnterior.items.length - 1);
+      } else {
+        renderEncuesta();
+      }
+    }
+  });
+}
+
+function iconoNube(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A4.5 4.5 0 0118 18H6z"/></svg>`; }
+
+// ---------------------------------------------------------------------
+// Revisión final y cierre
+// ---------------------------------------------------------------------
+function renderRevision() {
+  const total = totalReactivosAplicables();
+  const respondidos = reactivosRespondidos();
+  const completo = respondidos === total;
+
+  main.innerHTML = `
+    <div class="card">
+      <h1 class="titulo">Revisa antes de enviar</h1>
+      <p class="subtitulo">${completo
+        ? 'Contestaste todos los reactivos. Una vez que envíes, no podrás modificar tus respuestas y no verás tu resultado individual — solo tu equipo de Desarrollo Humano verá los resultados agregados y anónimos.'
+        : `Te faltan ${total - respondidos} reactivos por contestar.`}</p>
+      <div class="nav-encuesta">
+        <button class="btn btn-secundario" id="btn-revisar-atras">Regresar a la encuesta</button>
+        <button class="btn btn-primario" id="btn-enviar" ${completo ? '' : 'disabled'}>Enviar respuestas</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-revisar-atras').addEventListener('click', () => {
+    estado.pasoActual = 0;
+    renderEncuesta();
+  });
+  document.getElementById('btn-enviar').addEventListener('click', enviarEncuesta);
+}
+
+async function enviarEncuesta() {
+  const boton = document.getElementById('btn-enviar');
+  boton.disabled = true;
+  boton.textContent = 'Enviando…';
+
+  const duracionSegundos = Math.floor((Date.now() - estado.inicio) / 1000);
+  const respuestasPlano = Object.entries(estado.respuestas).map(([numero, indice]) => ({
+    reactivo_id: `R${numero}`,
+    indice,
+  }));
+
+  try {
+    if (MODO_DEMO) {
+      // En modo demo no hay motor de calificación server-side conectado;
+      // solo simulamos el cierre para poder probar el flujo completo.
+      await new Promise((r) => setTimeout(r, 700));
+    } else {
+      const { error } = await supabase.functions.invoke('finalize-survey', {
+        body: {
+          colaborador_id: estado.colaborador.id,
+          respuestas: respuestasPlano,
+          atiendeClientes: estado.atiendeClientes,
+          esJefe: estado.esJefe,
+          duracion_segundos: duracionSegundos,
+        },
+      });
+      if (error) throw error;
+    }
+    borrarBuffer();
+    renderGracias();
+  } catch (e) {
+    boton.disabled = false;
+    boton.textContent = 'Enviar respuestas';
+    alert('No se pudo enviar tu encuesta. Por favor intenta de nuevo. Tu avance sigue guardado.');
+  }
+}
+
+function renderGracias() {
+  main.innerHTML = `
+    <div class="screen-gracias">
+      <div class="card">
+        <div class="icono-check-grande">${iconoCheck()}</div>
+        <h1 class="titulo">Gracias por participar</h1>
+        <p class="subtitulo">Tu encuesta fue registrada de forma anónima. Los resultados agregados ayudarán a mejorar nuestro entorno de trabajo en Riverline.</p>
+      </div>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------
+// Arranque
+// ---------------------------------------------------------------------
+renderLogin();
+</script>
+</body>
+</html>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Seguimiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-300:#d5d7dd; --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --verde:#1f8a4c; --verde-bg:#e8f6ee; --ambar:#b8860b; --ambar-bg:#fbf3dd;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:1180px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:10px 16px;transition:transform .1s ease, background .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-primario{background:var(--rojo);color:#fff;}
+  .btn-primario:hover{background:var(--rojo-oscuro);}
+  .btn-secundario{background:#fff;color:var(--gris-900);border:1.5px solid var(--gris-200);}
+  .btn-secundario:hover{background:var(--gris-100);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .acciones-top{display:flex; gap:10px;}
+
+  .grid-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+  @media (max-width:900px){.grid-kpi{grid-template-columns:repeat(2,1fr);}}
+  .kpi-card{background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow);padding:18px 18px;}
+  .kpi-label{font-size:12px;font-weight:600;color:var(--gris-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em;}
+  .kpi-valor{font-size:26px;font-weight:800;letter-spacing:-.01em;}
+  .kpi-valor.rojo{color:var(--rojo);}
+  .kpi-valor.verde{color:var(--verde);}
+  .kpi-sub{font-size:12px;color:var(--gris-500);margin-top:4px;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .panel-titulo{font-size:16px;font-weight:800;}
+
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .filtros select, .filtros input{
+    font-family:var(--font);font-size:13.5px;padding:9px 12px;border-radius:var(--radius-sm);
+    border:1.5px solid var(--gris-200);background:var(--gris-100);color:var(--negro);
+  }
+  .filtros select:focus, .filtros input:focus{outline:none;border-color:var(--rojo);background:#fff;}
+
+  table.tabla-seguimiento{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.tabla-seguimiento th{
+    text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;
+    color:var(--gris-500);font-weight:700;padding:10px 12px;border-bottom:2px solid var(--gris-200);
+    cursor:pointer; user-select:none;
+  }
+  table.tabla-seguimiento th:hover{color:var(--negro);}
+  table.tabla-seguimiento td{padding:12px;border-bottom:1px solid var(--gris-100);}
+  table.tabla-seguimiento tr:hover td{background:var(--gris-100);}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:100px;}
+  .badge-contesto{background:var(--verde-bg);color:var(--verde);}
+  .badge-en_proceso{background:var(--ambar-bg);color:var(--ambar);}
+  .badge-no_contesto{background:var(--gris-200);color:var(--gris-700);}
+  .btn-fila{background:transparent;border:1.5px solid var(--gris-200);color:var(--gris-700);font-size:12px;font-weight:700;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;}
+  .btn-fila:hover{border-color:var(--rojo);color:var(--rojo);}
+  .btn-fila:disabled{opacity:.4;cursor:not-allowed;}
+
+  .vacio{text-align:center;padding:40px 20px;color:var(--gris-500);font-size:14px;}
+
+  .modal-fondo{position:fixed;inset:0;background:rgba(21,22,26,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:#fff;border-radius:var(--radius-lg);padding:26px;max-width:560px;width:100%;max-height:85vh;overflow:auto;}
+  .modal h2{margin:0 0 6px;font-size:18px;font-weight:800;}
+  .modal p.desc{color:var(--gris-700);font-size:13.5px;margin:0 0 18px;}
+  .modal .nav{display:flex;gap:10px;margin-top:20px;}
+  input[type=file].campo-archivo{width:100%;padding:14px;border:1.5px dashed var(--gris-300);border-radius:var(--radius-sm);font-family:var(--font);font-size:13.5px;}
+  table.tabla-preview{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:14px;}
+  table.tabla-preview th, table.tabla-preview td{padding:6px 8px;border-bottom:1px solid var(--gris-100);text-align:left;}
+  .oculto{display:none !important;}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--negro);color:#fff;padding:13px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:100;}
+
+  .pill-demo{font-size:11px;font-weight:700;background:var(--ambar-bg);color:var(--ambar);padding:5px 10px;border-radius:100px;}
+
+  @media (prefers-color-scheme: dark){
+    :root{
+      --gris-100:#121317; --gris-200:#26282f; --gris-300:#33353d; --blanco:#1b1c22;
+      --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89;
+    }
+    body{background:#0c0d10;}
+    .kpi-card,.panel,.modal{background:#1b1c22;}
+    .btn-secundario{background:#1b1c22;color:var(--gris-900);}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Seguimiento</small></span>
+    </div>
+    <div class="acciones-top">
+      <span id="pill-demo" class="pill-demo oculto">Modo demo</span>
+      <button class="btn btn-secundario" id="btn-importar">Importar colaboradores</button>
+      <button class="btn btn-primario" id="btn-exportar">Exportar Excel</button>
+    </div>
+  </header>
+
+  <section class="grid-kpi" id="grid-kpi"></section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div class="panel-titulo">Seguimiento de aplicación</div>
+      <button class="btn btn-secundario" id="btn-recordatorio-masivo">Enviar recordatorio a pendientes</button>
+    </div>
+    <div class="filtros">
+      <select id="filtro-departamento"><option value="">Todos los departamentos</option></select>
+      <select id="filtro-puesto"><option value="">Todos los puestos</option></select>
+      <select id="filtro-status">
+        <option value="">Todos los status</option>
+        <option value="no_contesto">No contestó</option>
+        <option value="en_proceso">En proceso</option>
+        <option value="contesto">Contestó</option>
+      </select>
+      <input type="text" id="filtro-busqueda" placeholder="Buscar por nombre…" />
+    </div>
+    <div id="contenedor-tabla"></div>
+  </section>
+</div>
+
+<div id="modal-importar" class="modal-fondo oculto">
+  <div class="modal">
+    <h2>Importar colaboradores</h2>
+    <p class="desc">Sube un Excel o CSV con las columnas: <strong>nombre, puesto, departamento, email</strong> (opcional: <strong>codigo</strong>). Si no incluyes código, se genera uno automáticamente.</p>
+    <input type="file" id="input-archivo" class="campo-archivo" accept=".xlsx,.xls,.csv" />
+    <div id="preview-importacion"></div>
+    <div class="nav">
+      <button class="btn btn-secundario" id="btn-cancelar-importar">Cancelar</button>
+      <button class="btn btn-primario" id="btn-confirmar-importar" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   MODULO 5 - ADMINISTRADOR: SEGUIMIENTO
+   Dashboard KPIs, tabla filtrable, import Excel/CSV, recordatorios.
+
+   INTEGRACION SUPABASE (produccion):
+   - Reemplaza SUPABASE_URL / SUPABASE_ANON_KEY.
+   - Requiere sesion autenticada con rol admin (RLS: SELECT/UPDATE/INSERT
+     sobre seguimiento.colaboradores, sin acceso a encuestas.* en detalle
+     - el promedio de duracion se lee de una vista agregada, nunca de filas
+     individuales vinculables).
+   - El boton "Enviar recordatorio" invoca la Edge Function send-reminder.
+   - La importacion inserta en seguimiento.colaboradores via RPC
+     importar_colaboradores (genera codigos y evita duplicados por email).
+
+   MODO DEMO: si no configuras las credenciales, la app usa un padron de
+   ejemplo en memoria, para poder probar todo el flujo sin backend.
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabase = null;
+if (!MODO_DEMO) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ---------------------------------------------------------------------
+// Datos de ejemplo (modo demo)
+// ---------------------------------------------------------------------
+function generarPadronDemo() {
+  const departamentos = ['Produccion', 'Calidad', 'Logistica', 'Ventas', 'Administracion'];
+  const puestos = ['Operador', 'Supervisor', 'Analista', 'Coordinador', 'Gerente'];
+  const statuses = ['no_contesto', 'en_proceso', 'contesto'];
+  const nombres = ['Ana', 'Luis', 'Maria', 'Carlos', 'Sofia', 'Jorge', 'Laura', 'Miguel', 'Paola', 'Raul', 'Diana', 'Ivan'];
+  const apellidos = ['Garcia', 'Hernandez', 'Lopez', 'Martinez', 'Ramirez', 'Torres', 'Flores', 'Vega'];
+  const filas = [];
+  for (let i = 1; i <= 47; i++) {
+    const status = statuses[i % 3 === 0 ? 2 : (i % 5 === 0 ? 1 : 0)];
+    filas.push({
+      id: 'demo-' + i,
+      codigo: String(1000 + i),
+      nombre: nombres[i % nombres.length] + ' ' + apellidos[i % apellidos.length],
+      puesto: puestos[i % puestos.length],
+      departamento: departamentos[i % departamentos.length],
+      email: 'colaborador' + i + '@riverline.mx',
+      status: status,
+      fecha_acceso: status !== 'no_contesto' ? new Date(2026, 6, (i % 28) + 1).toISOString() : null,
+      fecha_encuesta: status === 'contesto' ? new Date(2026, 6, (i % 28) + 1).toISOString() : null,
+      recordatorios_enviados: 0,
+    });
+  }
+  return filas;
+}
+
+// ---------------------------------------------------------------------
+// ESTADO
+// ---------------------------------------------------------------------
+const estado = {
+  colaboradores: [],
+  tiempoPromedioSegundos: null,
+  filtros: { departamento: '', puesto: '', status: '', busqueda: '' },
+  orden: { columna: 'nombre', direccion: 'asc' },
+};
+
+// =======================================================================
+// FUNCIONES PURAS (testeables sin DOM)
+// =======================================================================
+
+function calcularKPIs(colaboradores, tiempoPromedioSegundos) {
+  const total = colaboradores.length;
+  const contestaron = colaboradores.filter(function(c){ return c.status === 'contesto'; }).length;
+  const enProceso = colaboradores.filter(function(c){ return c.status === 'en_proceso'; }).length;
+  const noContesto = colaboradores.filter(function(c){ return c.status === 'no_contesto'; }).length;
+  const porcentaje = total > 0 ? Math.round((contestaron / total) * 100) : 0;
+  return {
+    total: total,
+    contestaron: contestaron,
+    enProceso: enProceso,
+    noContesto: noContesto,
+    pendientes: enProceso + noContesto,
+    porcentaje: porcentaje,
+    tiempoPromedioSegundos: tiempoPromedioSegundos,
+  };
+}
+
+function filtrarColaboradores(colaboradores, filtros) {
+  const busq = (filtros.busqueda || '').trim().toLowerCase();
+  return colaboradores.filter(function(c) {
+    if (filtros.departamento && c.departamento !== filtros.departamento) return false;
+    if (filtros.puesto && c.puesto !== filtros.puesto) return false;
+    if (filtros.status && c.status !== filtros.status) return false;
+    if (busq && c.nombre.toLowerCase().indexOf(busq) === -1) return false;
+    return true;
+  });
+}
+
+function ordenarColaboradores(colaboradores, columna, direccion) {
+  const copia = colaboradores.slice();
+  copia.sort(function(a, b) {
+    const va = a[columna] == null ? '' : a[columna];
+    const vb = b[columna] == null ? '' : b[columna];
+    if (va < vb) return direccion === 'asc' ? -1 : 1;
+    if (va > vb) return direccion === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return copia;
+}
+
+function valoresUnicos(colaboradores, campo) {
+  const set = new Set(colaboradores.map(function(c){ return c[campo]; }).filter(Boolean));
+  return Array.from(set).sort();
+}
+
+function formatearFecha(iso) {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const ETIQUETA_STATUS = { no_contesto: 'No contesto', en_proceso: 'En proceso', contesto: 'Contesto' };
+
+function construirFilasExportacion(colaboradores) {
+  return colaboradores.map(function(c) {
+    return {
+      Codigo: c.codigo,
+      Nombre: c.nombre,
+      Puesto: c.puesto,
+      Departamento: c.departamento,
+      Status: ETIQUETA_STATUS[c.status] || c.status,
+      'Fecha de acceso': c.fecha_acceso ? formatearFecha(c.fecha_acceso) : '',
+      'Fecha de encuesta': c.fecha_encuesta ? formatearFecha(c.fecha_encuesta) : '',
+      'Recordatorios enviados': c.recordatorios_enviados || 0,
+    };
+  });
+}
+
+function generarCSV(filasExportacion) {
+  if (filasExportacion.length === 0) return '';
+  const columnas = Object.keys(filasExportacion[0]);
+  function escapar(valor) {
+    const str = String(valor == null ? '' : valor);
+    if (str.indexOf(',') !== -1 || str.indexOf('"') !== -1 || str.indexOf('\n') !== -1) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+  const filas = [columnas.join(',')];
+  for (let i = 0; i < filasExportacion.length; i++) {
+    const fila = filasExportacion[i];
+    filas.push(columnas.map(function(col){ return escapar(fila[col]); }).join(','));
+  }
+  return filas.join('\n');
+}
+
+function normalizarFilasImportadas(filasCrudas, codigoInicial) {
+  function obtenerCampo(fila, nombres) {
+    const claves = Object.keys(fila);
+    for (let i = 0; i < claves.length; i++) {
+      const clave = claves[i];
+      const claveNormalizada = clave.trim().toLowerCase();
+      if (nombres.indexOf(claveNormalizada) !== -1) return String(fila[clave] == null ? '' : fila[clave]).trim();
+    }
+    return '';
+  }
+
+  const validas = [];
+  const invalidas = [];
+  let siguienteCodigo = codigoInicial;
+
+  filasCrudas.forEach(function(fila, idx) {
+    const nombre = obtenerCampo(fila, ['nombre', 'nombre completo']);
+    const puesto = obtenerCampo(fila, ['puesto']);
+    const departamento = obtenerCampo(fila, ['departamento', 'depto']);
+    const email = obtenerCampo(fila, ['email', 'correo']);
+    let codigo = obtenerCampo(fila, ['codigo', 'c\u00f3digo']);
+
+    if (!nombre || !departamento) {
+      invalidas.push({ fila: idx + 1, motivo: 'Falta nombre o departamento', datos: fila });
+      return;
+    }
+    if (!codigo) {
+      codigo = String(siguienteCodigo);
+      siguienteCodigo++;
+    }
+    validas.push({ codigo: codigo, nombre: nombre, puesto: puesto, departamento: departamento, email: email, status: 'no_contesto' });
+  });
+
+  return { validas: validas, invalidas: invalidas };
+}
+
+// =======================================================================
+// RENDER
+// =======================================================================
+
+function iconoCheck(){return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>';}
+
+function renderKPIs() {
+  const kpi = calcularKPIs(estado.colaboradores, estado.tiempoPromedioSegundos);
+  const contenedor = document.getElementById('grid-kpi');
+  const minutos = kpi.tiempoPromedioSegundos != null ? Math.round(kpi.tiempoPromedioSegundos / 60) : null;
+  contenedor.innerHTML =
+    '<div class="kpi-card"><div class="kpi-label">Total colaboradores</div><div class="kpi-valor">' + kpi.total + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Contestaron</div><div class="kpi-valor verde">' + kpi.contestaron + '</div><div class="kpi-sub">' + kpi.porcentaje + '% del total</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-valor rojo">' + kpi.pendientes + '</div><div class="kpi-sub">' + kpi.noContesto + ' sin iniciar \u00b7 ' + kpi.enProceso + ' en proceso</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">% de avance</div><div class="kpi-valor">' + kpi.porcentaje + '%</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Tiempo promedio</div><div class="kpi-valor">' + (minutos != null ? minutos + ' min' : '\u2014') + '</div><div class="kpi-sub">Calculado de forma agregada y anonima</div></div>';
+}
+
+function renderFiltros() {
+  const selDept = document.getElementById('filtro-departamento');
+  const selPuesto = document.getElementById('filtro-puesto');
+  if (selDept.dataset.armado) return;
+  const departamentos = valoresUnicos(estado.colaboradores, 'departamento');
+  const puestos = valoresUnicos(estado.colaboradores, 'puesto');
+  departamentos.forEach(function(d){ selDept.insertAdjacentHTML('beforeend', '<option value="' + d + '">' + d + '</option>'); });
+  puestos.forEach(function(p){ selPuesto.insertAdjacentHTML('beforeend', '<option value="' + p + '">' + p + '</option>'); });
+  selDept.dataset.armado = '1';
+}
+
+function filaHTML(c) {
+  const puedeRecordar = c.status !== 'contesto';
+  return '<tr data-id="' + c.id + '">' +
+    '<td>' + c.nombre + '</td>' +
+    '<td>' + c.puesto + '</td>' +
+    '<td>' + c.departamento + '</td>' +
+    '<td><span class="badge badge-' + c.status + '">' + ETIQUETA_STATUS[c.status] + '</span></td>' +
+    '<td>' + formatearFecha(c.fecha_encuesta || c.fecha_acceso) + '</td>' +
+    '<td><button class="btn-fila" data-accion="recordatorio" data-id="' + c.id + '" ' + (puedeRecordar ? '' : 'disabled') + '>' + (c.recordatorios_enviados > 0 ? ('Reenviar (' + c.recordatorios_enviados + ')') : 'Recordar') + '</button></td>' +
+    '</tr>';
+}
+
+function renderTabla() {
+  const filtradas = filtrarColaboradores(estado.colaboradores, estado.filtros);
+  const ordenadas = ordenarColaboradores(filtradas, estado.orden.columna, estado.orden.direccion);
+  const contenedor = document.getElementById('contenedor-tabla');
+
+  if (ordenadas.length === 0) {
+    contenedor.innerHTML = '<div class="vacio">No hay colaboradores que coincidan con los filtros.</div>';
+    return;
+  }
+
+  contenedor.innerHTML =
+    '<table class="tabla-seguimiento"><thead><tr>' +
+    '<th data-col="nombre">Nombre</th>' +
+    '<th data-col="puesto">Puesto</th>' +
+    '<th data-col="departamento">Departamento</th>' +
+    '<th data-col="status">Status</th>' +
+    '<th data-col="fecha_encuesta">Fecha</th>' +
+    '<th>Accion</th>' +
+    '</tr></thead><tbody>' + ordenadas.map(filaHTML).join('') + '</tbody></table>';
+
+  const ths = contenedor.querySelectorAll('th[data-col]');
+  ths.forEach(function(th) {
+    th.addEventListener('click', function() {
+      const col = th.dataset.col;
+      if (estado.orden.columna === col) {
+        estado.orden.direccion = estado.orden.direccion === 'asc' ? 'desc' : 'asc';
+      } else {
+        estado.orden.columna = col;
+        estado.orden.direccion = 'asc';
+      }
+      renderTabla();
+    });
+  });
+
+  const btns = contenedor.querySelectorAll('[data-accion="recordatorio"]');
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function(){ enviarRecordatorio(btn.dataset.id); });
+  });
+}
+
+function mostrarToast(mensaje) {
+  const existente = document.querySelector('.toast');
+  if (existente) existente.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = mensaje;
+  document.body.appendChild(toast);
+  setTimeout(function(){ toast.remove(); }, 3200);
+}
+
+// ---------------------------------------------------------------------
+// Acciones: recordatorios
+// ---------------------------------------------------------------------
+async function enviarRecordatorio(colaboradorId) {
+  const colaborador = estado.colaboradores.find(function(c){ return c.id === colaboradorId; });
+  if (!colaborador || colaborador.status === 'contesto') return;
+
+  if (MODO_DEMO) {
+    colaborador.recordatorios_enviados = (colaborador.recordatorios_enviados || 0) + 1;
+    renderTabla();
+    mostrarToast('Recordatorio enviado a ' + colaborador.nombre + ' (demo, sin envio real de correo).');
+    return;
+  }
+  try {
+    const resp = await supabase.functions.invoke('send-reminder', { body: { colaborador_id: colaboradorId } });
+    if (resp.error) throw resp.error;
+    colaborador.recordatorios_enviados = (colaborador.recordatorios_enviados || 0) + 1;
+    renderTabla();
+    mostrarToast('Recordatorio enviado a ' + colaborador.nombre + '.');
+  } catch (e) {
+    mostrarToast('No se pudo enviar el recordatorio. Intenta de nuevo.');
+  }
+}
+
+async function enviarRecordatorioMasivo() {
+  const pendientes = filtrarColaboradores(estado.colaboradores, estado.filtros).filter(function(c){ return c.status !== 'contesto'; });
+  if (pendientes.length === 0) {
+    mostrarToast('No hay pendientes en la vista actual.');
+    return;
+  }
+  const boton = document.getElementById('btn-recordatorio-masivo');
+  boton.disabled = true;
+  boton.textContent = 'Enviando...';
+  for (let i = 0; i < pendientes.length; i++) {
+    await enviarRecordatorio(pendientes[i].id);
+  }
+  boton.disabled = false;
+  boton.textContent = 'Enviar recordatorio a pendientes';
+  mostrarToast('Recordatorios enviados a ' + pendientes.length + ' colaboradores pendientes.');
+}
+
+// ---------------------------------------------------------------------
+// Exportacion
+// ---------------------------------------------------------------------
+function exportarExcel() {
+  const filtradas = filtrarColaboradores(estado.colaboradores, estado.filtros);
+  const filas = construirFilasExportacion(filtradas);
+  if (filas.length === 0) {
+    mostrarToast('No hay datos para exportar con los filtros actuales.');
+    return;
+  }
+  if (window.XLSX) {
+    const hoja = window.XLSX.utils.json_to_sheet(filas);
+    const libro = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(libro, hoja, 'Seguimiento');
+    window.XLSX.writeFile(libro, 'seguimiento-nom035-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  } else {
+    const csv = generarCSV(filas);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'seguimiento-nom035-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  mostrarToast('Exportados ' + filas.length + ' colaboradores.');
+}
+
+// ---------------------------------------------------------------------
+// Importacion
+// ---------------------------------------------------------------------
+let filasParaImportar = [];
+
+function abrirModalImportar() {
+  document.getElementById('modal-importar').classList.remove('oculto');
+  document.getElementById('input-archivo').value = '';
+  document.getElementById('preview-importacion').innerHTML = '';
+  document.getElementById('btn-confirmar-importar').disabled = true;
+  filasParaImportar = [];
+}
+function cerrarModalImportar() {
+  document.getElementById('modal-importar').classList.add('oculto');
+}
+
+function siguienteCodigoDisponible() {
+  const codigosNumericos = estado.colaboradores
+    .map(function(c){ return Number(c.codigo); })
+    .filter(function(n){ return Number.isFinite(n); });
+  return (codigosNumericos.length > 0 ? Math.max.apply(null, codigosNumericos) : 1000) + 1;
+}
+
+function manejarArchivoSeleccionado(archivo) {
+  const lector = new FileReader();
+  lector.onload = function(e) {
+    const datos = new Uint8Array(e.target.result);
+    const libro = window.XLSX.read(datos, { type: 'array' });
+    const primeraHoja = libro.Sheets[libro.SheetNames[0]];
+    const filasCrudas = window.XLSX.utils.sheet_to_json(primeraHoja, { defval: '' });
+
+    const resultado = normalizarFilasImportadas(filasCrudas, siguienteCodigoDisponible());
+    filasParaImportar = resultado.validas;
+    renderPreviewImportacion(resultado.validas, resultado.invalidas);
+    document.getElementById('btn-confirmar-importar').disabled = resultado.validas.length === 0;
+  };
+  lector.readAsArrayBuffer(archivo);
+}
+
+function renderPreviewImportacion(validas, invalidas) {
+  const contenedor = document.getElementById('preview-importacion');
+  let html = '<p style="font-size:13px;color:var(--gris-700);margin-top:12px;"><strong>' + validas.length + '</strong> filas listas para importar' +
+    (invalidas.length > 0 ? (' \u00b7 <strong style="color:var(--rojo)">' + invalidas.length + '</strong> filas con error') : '') + '</p>';
+  if (validas.length > 0) {
+    const filasHtml = validas.slice(0, 8).map(function(f) {
+      return '<tr><td>' + f.codigo + '</td><td>' + f.nombre + '</td><td>' + f.puesto + '</td><td>' + f.departamento + '</td></tr>';
+    }).join('');
+    const masHtml = validas.length > 8 ? ('<tr><td colspan="4" style="color:var(--gris-500);">...y ' + (validas.length - 8) + ' mas</td></tr>') : '';
+    html += '<table class="tabla-preview"><thead><tr><th>Codigo</th><th>Nombre</th><th>Puesto</th><th>Departamento</th></tr></thead><tbody>' + filasHtml + masHtml + '</tbody></table>';
+  }
+  contenedor.innerHTML = html;
+}
+
+async function confirmarImportacion() {
+  const boton = document.getElementById('btn-confirmar-importar');
+  boton.disabled = true;
+  boton.textContent = 'Importando...';
+
+  if (MODO_DEMO) {
+    filasParaImportar.forEach(function(f, i) {
+      const nuevo = Object.assign({}, f, {
+        id: 'import-' + Date.now() + '-' + i,
+        fecha_acceso: null,
+        fecha_encuesta: null,
+        recordatorios_enviados: 0,
+      });
+      estado.colaboradores.push(nuevo);
+    });
+  } else {
+    // Ver Módulo 9: la importación pasa por un RPC SECURITY DEFINER que
+    // valida que quien llama sea admin y deduplica por email.
+    const resp = await supabase.rpc('admin_importar_colaboradores', { p_filas: filasParaImportar });
+    if (resp.error) {
+      mostrarToast('Error al importar. Revisa el archivo e intenta de nuevo.');
+      boton.disabled = false;
+      boton.textContent = 'Importar';
+      return;
+    }
+    await cargarColaboradores();
+  }
+
+  cerrarModalImportar();
+  renderKPIs();
+  renderTabla();
+  mostrarToast(filasParaImportar.length + ' colaboradores importados correctamente.');
+  boton.textContent = 'Importar';
+}
+
+// ---------------------------------------------------------------------
+// Carga de datos
+// ---------------------------------------------------------------------
+async function cargarColaboradores() {
+  if (MODO_DEMO) {
+    estado.colaboradores = generarPadronDemo();
+    estado.tiempoPromedioSegundos = 11 * 60 + 40;
+    document.getElementById('pill-demo').classList.remove('oculto');
+    return;
+  }
+  // Ver Módulo 9: nunca se lee seguimiento.colaboradores directo — el RPC
+  // valida que quien llama sea admin antes de regresar cualquier fila.
+  const resp = await supabase.rpc('admin_obtener_seguimiento');
+  if (resp.error) { mostrarToast('Error al cargar colaboradores.'); return; }
+  estado.colaboradores = resp.data || [];
+
+  const promedioResp = await supabase.rpc('duracion_promedio_segundos');
+  estado.tiempoPromedioSegundos = promedioResp.data != null ? promedioResp.data : null;
+}
+
+// ---------------------------------------------------------------------
+// Wiring de eventos
+// ---------------------------------------------------------------------
+function inicializarEventos() {
+  document.getElementById('filtro-departamento').addEventListener('change', function(e){ estado.filtros.departamento = e.target.value; renderTabla(); });
+  document.getElementById('filtro-puesto').addEventListener('change', function(e){ estado.filtros.puesto = e.target.value; renderTabla(); });
+  document.getElementById('filtro-status').addEventListener('change', function(e){ estado.filtros.status = e.target.value; renderTabla(); });
+  document.getElementById('filtro-busqueda').addEventListener('input', function(e){ estado.filtros.busqueda = e.target.value; renderTabla(); });
+  document.getElementById('btn-recordatorio-masivo').addEventListener('click', enviarRecordatorioMasivo);
+  document.getElementById('btn-exportar').addEventListener('click', exportarExcel);
+  document.getElementById('btn-importar').addEventListener('click', abrirModalImportar);
+  document.getElementById('btn-cancelar-importar').addEventListener('click', cerrarModalImportar);
+  document.getElementById('btn-confirmar-importar').addEventListener('click', confirmarImportacion);
+  document.getElementById('input-archivo').addEventListener('change', function(e){
+    if (e.target.files[0]) manejarArchivoSeleccionado(e.target.files[0]);
+  });
+}
+
+// Exponer estado en window: útil para pruebas automatizadas (jsdom) y para
+// depuración manual en consola del navegador. `const`/`let` de nivel superior
+// no se adjuntan automáticamente a `window` en un <script> clásico.
+window.estado = estado;
+
+// ---------------------------------------------------------------------
+// Arranque
+// ---------------------------------------------------------------------
+async function iniciar() {
+  await cargarColaboradores();
+  renderKPIs();
+  renderFiltros();
+  renderTabla();
+  inicializarEventos();
+}
+iniciar();
+</script>
+</body>
+</html>

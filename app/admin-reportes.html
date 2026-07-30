@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Reportes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --nulo:#1f8a4c; --bajo:#6fae4a; --medio:#c99a2e; --alto:#e2711d; --muy_alto:#e50d2e;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:980px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:#c99a2e;padding:5px 10px;border-radius:100px;}
+
+  .grid-reportes{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px;}
+  @media (max-width:700px){.grid-reportes{grid-template-columns:1fr;}}
+  .tarjeta-reporte{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:12px;}
+  .tarjeta-icono{width:42px;height:42px;border-radius:10px;background:var(--gris-100);display:flex;align-items:center;justify-content:center;color:var(--rojo);}
+  .tarjeta-icono svg{width:20px;height:20px;}
+  .tarjeta-titulo{font-size:15.5px;font-weight:800;}
+  .tarjeta-desc{font-size:12.5px;color:var(--gris-700);line-height:1.5;flex:1;}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:11px 16px;transition:transform .1s ease, background .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-primario{background:var(--rojo);color:#fff;}
+  .btn-primario:hover{background:var(--rojo-oscuro);}
+  .btn-primario:disabled{opacity:.5;cursor:not-allowed;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;}
+  .panel-titulo{font-size:14px;font-weight:800;margin:0 0 10px;}
+  .resumen-fila{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--gris-100);}
+  .resumen-fila:last-child{border-bottom:none;}
+  .resumen-fila span:first-child{color:var(--gris-500);}
+  .resumen-fila span:last-child{font-weight:700;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--negro);color:#fff;padding:13px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:100;}
+
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-100:#121317; --gris-200:#26282f; --blanco:#1b1c22; --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89; }
+    body{background:#0c0d10;}
+    .tarjeta-reporte,.panel{background:#1b1c22;}
+    .tarjeta-icono{background:#26282f;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Reportes</small></span>
+    </div>
+    <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+  </header>
+
+  <section class="panel">
+    <div class="panel-titulo">Resumen del periodo</div>
+    <div id="resumen-periodo"></div>
+  </section>
+
+  <section class="grid-reportes">
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">PDF Ejecutivo</div>
+      <div class="tarjeta-desc">Resumen de una vista para direccion: calificacion global, ranking de dominios y plan de accion.</div>
+      <button class="btn btn-primario" id="btn-pdf-ejecutivo">Descargar PDF Ejecutivo</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">PDF Tecnico</div>
+      <div class="tarjeta-desc">Reporte completo: metodologia, cumplimiento normativo, tablas por categoria/dominio y anexos.</div>
+      <button class="btn btn-primario" id="btn-pdf-tecnico">Descargar PDF Tecnico</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">Excel</div>
+      <div class="tarjeta-desc">Libro con hojas de Resumen, Categorias, Dominios y Plan de accion, listo para tablas dinamicas.</div>
+      <button class="btn btn-primario" id="btn-excel">Descargar Excel</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">Word</div>
+      <div class="tarjeta-desc">Documento editable con la misma estructura del PDF tecnico, para anotar o adaptar antes de distribuir.</div>
+      <button class="btn btn-primario" id="btn-word">Descargar Word</button>
+    </div>
+    <div class="tarjeta-reporte" style="grid-column:1 / -1;">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">PowerPoint</div>
+      <div class="tarjeta-desc">Presentacion ejecutiva de 7 diapositivas para compartir resultados con direccion o el comite de seguridad.</div>
+      <button class="btn btn-primario" id="btn-ppt">Descargar PowerPoint</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   MODULO 7 - ADMINISTRADOR: REPORTES
+   PDF Ejecutivo/Tecnico (pdfmake), Excel (SheetJS), Word (docx),
+   PowerPoint (pptxgenjs). Todo el contenido se arma con funciones puras
+   a partir de los MISMOS resultados agregados y anonimos del Modulo 6
+   (nunca se inventa informacion; el texto normativo se cita verbatim).
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabase = null;
+if (!MODO_DEMO) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
+
+const CATEGORIAS_CATALOGO = [
+  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+];
+const DOMINIOS_CATALOGO = [
+  { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
+  { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
+  { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
+  { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
+  { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
+  { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
+  { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
+];
+const RANGOS_DOMINIO_MUYALTO = {
+  DOM_CONDICIONES: 14, DOM_CARGA: 37, DOM_CONTROL: 25, DOM_JORNADA: 6, DOM_INTERFERENCIA: 10,
+  DOM_LIDERAZGO: 20, DOM_RELACIONES: 21, DOM_VIOLENCIA: 16, DOM_RECONOCIMIENTO: 18, DOM_PERTENENCIA: 10,
+};
+const RANGOS_CATEGORIA_MUYALTO = {
+  CAT_AMBIENTE: 14, CAT_FACTORES: 60, CAT_ORG_TIEMPO: 13, CAT_LIDERAZGO: 58, CAT_ENTORNO: 23,
+};
+const ACCIONES_POR_NIVEL = {
+  muy_alto: 'Se requiere realizar el analisis de cada categoria y dominio para establecer las acciones de intervencion apropiadas, mediante un Programa de intervencion que debera incluir evaluaciones especificas, y contemplar campanas de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
+  alto: 'Se requiere realizar un analisis de cada categoria y dominio, de manera que se puedan determinar las acciones de intervencion apropiadas a traves de un Programa de intervencion, que podra incluir una evaluacion especifica y debera incluir una campana de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
+  medio: 'Se requiere revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion, mediante un Programa de intervencion.',
+  bajo: 'Es necesario una mayor difusion de la politica de prevencion de riesgos psicosociales y programas para: la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral.',
+  nulo: 'El riesgo resulta despreciable por lo que no se requiere medidas adicionales.',
+};
+const TEXTO_OBJETIVO = 'Identificar los factores de riesgo psicosocial y evaluar el entorno organizacional en el centro de trabajo, en cumplimiento de la NOM-035-STPS-2018, mediante la aplicacion del cuestionario de la Guia de Referencia III.';
+const TEXTO_METODOLOGIA = 'Se aplico el cuestionario oficial de la Guia de Referencia III (72 reactivos, escala tipo Likert de 5 opciones: Siempre, Casi siempre, Algunas veces, Casi nunca, Nunca), respetando los reactivos de puntuacion invertida y la agrupacion oficial en dimensiones, dominios y categorias. Las respuestas se recolectaron de forma anonima: el sistema unicamente registra que un colaborador ya contesto, nunca que fue lo que respondio, mediante una separacion estructural entre la tabla de seguimiento (con datos personales) y la tabla de resultados (sin ningun dato identificable).';
+const TEXTO_CUMPLIMIENTO = 'La calificacion se realizo con el catalogo normativo validado reactivo por reactivo contra la Guia III publicada por la STPS (textos, dimensiones, dominios, categorias, reactivos invertidos y rangos de riesgo), y con un motor de calculo probado mediante pruebas automatizadas. No se modifico, resumio ni reinterpreto la metodologia oficial en ningun punto del proceso.';
+
+// =======================================================================
+// FUNCIONES PURAS DE CONTENIDO (compartidas entre los 4 formatos)
+// =======================================================================
+
+function normalizarPct(puntaje, limiteMuyAlto) {
+  if (!limiteMuyAlto || limiteMuyAlto <= 0) return 0;
+  return Math.round((puntaje / limiteMuyAlto) * 100);
+}
+
+function construirRankingDominios(resultados) {
+  const nombrePorId = new Map(DOMINIOS_CATALOGO.map((d) => [d.id, d.nombre]));
+  const categoriaPorId = new Map(DOMINIOS_CATALOGO.map((d) => [d.id, d.categoria_id]));
+  const enriquecidos = resultados.porDominio.map((d) => ({
+    dominio_id: d.dominio_id,
+    nombre: nombrePorId.get(d.dominio_id) || d.dominio_id,
+    categoria_id: categoriaPorId.get(d.dominio_id),
+    puntaje: d.puntaje,
+    nivel_riesgo: d.nivel_riesgo,
+    porcentaje: normalizarPct(d.puntaje, RANGOS_DOMINIO_MUYALTO[d.dominio_id]),
+  }));
+  enriquecidos.sort((a, b) => {
+    const diff = NIVEL_ORDEN[b.nivel_riesgo] - NIVEL_ORDEN[a.nivel_riesgo];
+    return diff !== 0 ? diff : b.porcentaje - a.porcentaje;
+  });
+  return enriquecidos;
+}
+
+function construirTablaCategorias(resultados) {
+  const nombrePorId = new Map(CATEGORIAS_CATALOGO.map((c) => [c.id, c.nombre]));
+  return resultados.porCategoria.map((c) => ({
+    nombre: nombrePorId.get(c.categoria_id) || c.categoria_id,
+    puntaje: c.puntaje,
+    nivel_riesgo: c.nivel_riesgo,
+    etiqueta: NIVEL_ETIQUETA[c.nivel_riesgo],
+  }));
+}
+
+function construirPlanDeAccion(resultados) {
+  const ranking = construirRankingDominios(resultados);
+  const fortalezas = ranking.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] <= 1).sort((a, b) => a.porcentaje - b.porcentaje).slice(0, 5);
+  const criticos = ranking.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] >= 3);
+  return {
+    nivelGlobal: resultados.global.nivel_riesgo,
+    puntajeGlobal: resultados.global.puntaje,
+    accionOficial: ACCIONES_POR_NIVEL[resultados.global.nivel_riesgo],
+    dominiosPrioritarios: criticos.slice(0, 5),
+    fortalezas,
+  };
+}
+
+function construirResumenPeriodo(resultados, periodo) {
+  return {
+    periodo,
+    totalRespuestas: resultados.totalRespuestas,
+    puntajeGlobal: resultados.global.puntaje,
+    nivelGlobal: resultados.global.nivel_riesgo,
+    etiquetaGlobal: NIVEL_ETIQUETA[resultados.global.nivel_riesgo],
+    fechaGeneracion: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }),
+  };
+}
+
+// =======================================================================
+// DATOS DEMO (coherentes con el Modulo 6)
+// =======================================================================
+function generarResultadosDemo() {
+  return {
+    totalRespuestas: 41,
+    global: { puntaje: 111, nivel_riesgo: 'alto' },
+    porCategoria: [
+      { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
+      { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
+      { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
+      { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
+      { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
+    ],
+    porDominio: [
+      { dominio_id: 'DOM_CONDICIONES', puntaje: 6, nivel_riesgo: 'bajo' },
+      { dominio_id: 'DOM_CARGA', puntaje: 30, nivel_riesgo: 'alto' },
+      { dominio_id: 'DOM_CONTROL', puntaje: 12, nivel_riesgo: 'bajo' },
+      { dominio_id: 'DOM_JORNADA', puntaje: 5, nivel_riesgo: 'muy_alto' },
+      { dominio_id: 'DOM_INTERFERENCIA', puntaje: 5, nivel_riesgo: 'medio' },
+      { dominio_id: 'DOM_LIDERAZGO', puntaje: 8, nivel_riesgo: 'bajo' },
+      { dominio_id: 'DOM_RELACIONES', puntaje: 9, nivel_riesgo: 'bajo' },
+      { dominio_id: 'DOM_VIOLENCIA', puntaje: 18, nivel_riesgo: 'muy_alto' },
+      { dominio_id: 'DOM_RECONOCIMIENTO', puntaje: 15, nivel_riesgo: 'alto' },
+      { dominio_id: 'DOM_PERTENENCIA', puntaje: 3, nivel_riesgo: 'bajo' },
+    ],
+  };
+}
+
+const estado = { resultados: null, periodo: '2026-Q3' };
+window.estado = estado;
+
+// =======================================================================
+// GENERACION: PDF (pdfmake) - ejecutivo y tecnico
+// =======================================================================
+function colorNivelHex(nivel) {
+  return { nulo: '#1f8a4c', bajo: '#6fae4a', medio: '#c99a2e', alto: '#e2711d', muy_alto: '#e50d2e' }[nivel] || '#888';
+}
+
+function construirDocDefinicionPDF(tipo, resultados, periodo) {
+  const resumen = construirResumenPeriodo(resultados, periodo);
+  const ranking = construirRankingDominios(resultados);
+  const tablaCategorias = construirTablaCategorias(resultados);
+  const plan = construirPlanDeAccion(resultados);
+
+  const portada = [
+    { text: 'Riverline', style: 'marca' },
+    { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo NOM-035' : 'Reporte Tecnico NOM-035', style: 'tituloPortada', margin: [0, 60, 0, 6] },
+    { text: 'Guia de Referencia III · Identificacion de riesgo psicosocial', style: 'subtituloPortada' },
+    { text: 'Periodo: ' + resumen.periodo, margin: [0, 30, 0, 2], style: 'metaPortada' },
+    { text: 'Generado: ' + resumen.fechaGeneracion, style: 'metaPortada' },
+    { text: 'Respuestas anonimas incluidas: ' + resumen.totalRespuestas, style: 'metaPortada' },
+    { text: '', pageBreak: 'after' },
+  ];
+
+  const seccionResultados = [
+    { text: 'Calificacion global', style: 'h2' },
+    {
+      columns: [
+        { width: 'auto', text: String(resumen.puntajeGlobal), style: 'cifraGrande', color: colorNivelHex(resumen.nivelGlobal) },
+        { width: '*', text: [{ text: '\n' + resumen.etiquetaGlobal + '\n', bold: true, color: colorNivelHex(resumen.nivelGlobal) }, { text: 'Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.', style: 'nota' }] },
+      ],
+      margin: [0, 4, 0, 16],
+    },
+    { text: 'Calificacion por categoria', style: 'h2' },
+    {
+      table: {
+        widths: ['*', 'auto', 'auto'],
+        body: [
+          [{ text: 'Categoria', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
+          ...tablaCategorias.map((c) => [c.nombre, String(c.puntaje), { text: c.etiqueta, color: colorNivelHex(c.nivel_riesgo), bold: true }]),
+        ],
+      },
+      layout: 'lightHorizontalLines',
+      margin: [0, 4, 0, 16],
+    },
+    { text: 'Ranking de dominios (mayor a menor severidad relativa)', style: 'h2' },
+    {
+      table: {
+        widths: ['auto', '*', 'auto', 'auto'],
+        body: [
+          [{ text: '#', style: 'th' }, { text: 'Dominio', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
+          ...ranking.map((d, i) => [String(i + 1), d.nombre, String(d.puntaje), { text: NIVEL_ETIQUETA[d.nivel_riesgo], color: colorNivelHex(d.nivel_riesgo), bold: true }]),
+        ],
+      },
+      layout: 'lightHorizontalLines',
+      margin: [0, 4, 0, 16],
+    },
+  ];
+
+  const seccionPlan = [
+    { text: 'Plan de accion', style: 'h2' },
+    { text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[plan.nivelGlobal].toLowerCase() + ')', style: 'h3' },
+    { text: plan.accionOficial, style: 'cita', margin: [0, 2, 0, 12] },
+    { text: 'Dominios prioritarios', style: 'h3' },
+    plan.dominiosPrioritarios.length > 0
+      ? { ul: plan.dominiosPrioritarios.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
+      : { text: 'No se identificaron dominios en nivel alto o muy alto.' },
+    { text: 'Fortalezas', style: 'h3', margin: [0, 12, 0, 4] },
+    plan.fortalezas.length > 0
+      ? { ul: plan.fortalezas.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
+      : { text: 'No se identificaron dominios en nivel nulo o bajo.' },
+  ];
+
+  const contenido = [...portada, ...seccionResultados];
+
+  if (tipo === 'tecnico') {
+    contenido.push(
+      { text: 'Objetivo', style: 'h2', pageBreak: 'before' },
+      { text: TEXTO_OBJETIVO, margin: [0, 2, 0, 14] },
+      { text: 'Metodologia', style: 'h2' },
+      { text: TEXTO_METODOLOGIA, margin: [0, 2, 0, 14] },
+      { text: 'Cumplimiento normativo', style: 'h2' },
+      { text: TEXTO_CUMPLIMIENTO, margin: [0, 2, 0, 14] },
+      ...seccionPlan,
+      { text: 'Anexos', style: 'h2', pageBreak: 'before' },
+      { text: 'Catalogo de categorias y dominios evaluados (Guia de Referencia III, NOM-035-STPS-2018):', margin: [0, 2, 0, 8] },
+      {
+        ul: DOMINIOS_CATALOGO.map((d) => d.nombre + ' (' + (CATEGORIAS_CATALOGO.find((c) => c.id === d.categoria_id) || {}).nombre + ')'),
+        style: 'nota',
+      }
+    );
+  } else {
+    contenido.push({ text: '', pageBreak: 'before' }, ...seccionPlan);
+  }
+
+  return {
+    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' NOM-035 - Riverline' },
+    pageMargins: [40, 50, 40, 50],
+    content: contenido,
+    styles: {
+      marca: { fontSize: 12, bold: true, color: '#e50d2e' },
+      tituloPortada: { fontSize: 26, bold: true },
+      subtituloPortada: { fontSize: 13, color: '#4a4d57' },
+      metaPortada: { fontSize: 11, color: '#4a4d57' },
+      h2: { fontSize: 15, bold: true, margin: [0, 10, 0, 6] },
+      h3: { fontSize: 12.5, bold: true, margin: [0, 4, 0, 4] },
+      th: { bold: true, fillColor: '#f4f4f7' },
+      cifraGrande: { fontSize: 40, bold: true },
+      nota: { fontSize: 10, color: '#8a8d97' },
+      cita: { fontSize: 11, italics: true, color: '#1f2128' },
+    },
+    defaultStyle: { font: 'Roboto', fontSize: 11 },
+  };
+}
+
+function generarPDF(tipo) {
+  const docDefinicion = construirDocDefinicionPDF(tipo, estado.resultados, estado.periodo);
+  const nombreArchivo = 'reporte-' + tipo + '-nom035-' + estado.periodo + '.pdf';
+  window.pdfMake.createPdf(docDefinicion).download(nombreArchivo);
+}
+
+// =======================================================================
+// GENERACION: EXCEL (SheetJS)
+// =======================================================================
+function generarExcel() {
+  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
+  const ranking = construirRankingDominios(estado.resultados);
+  const categorias = construirTablaCategorias(estado.resultados);
+  const plan = construirPlanDeAccion(estado.resultados);
+
+  const libro = window.XLSX.utils.book_new();
+
+  const hojaResumen = window.XLSX.utils.json_to_sheet([
+    { Campo: 'Periodo', Valor: resumen.periodo },
+    { Campo: 'Respuestas anonimas', Valor: resumen.totalRespuestas },
+    { Campo: 'Calificacion global (Cfinal)', Valor: resumen.puntajeGlobal },
+    { Campo: 'Nivel de riesgo global', Valor: resumen.etiquetaGlobal },
+    { Campo: 'Fecha de generacion', Valor: resumen.fechaGeneracion },
+  ]);
+  window.XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+
+  const hojaCategorias = window.XLSX.utils.json_to_sheet(
+    categorias.map((c) => ({ Categoria: c.nombre, Puntaje: c.puntaje, Nivel: c.etiqueta }))
+  );
+  window.XLSX.utils.book_append_sheet(libro, hojaCategorias, 'Categorias');
+
+  const hojaDominios = window.XLSX.utils.json_to_sheet(
+    ranking.map((d, i) => ({ '#': i + 1, Dominio: d.nombre, Puntaje: d.puntaje, Nivel: NIVEL_ETIQUETA[d.nivel_riesgo] }))
+  );
+  window.XLSX.utils.book_append_sheet(libro, hojaDominios, 'Dominios');
+
+  const filasPlan = [
+    { Seccion: 'Nivel global', Detalle: NIVEL_ETIQUETA[plan.nivelGlobal] },
+    { Seccion: 'Accion oficial', Detalle: plan.accionOficial },
+    ...plan.dominiosPrioritarios.map((d) => ({ Seccion: 'Dominio prioritario', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
+    ...plan.fortalezas.map((d) => ({ Seccion: 'Fortaleza', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
+  ];
+  const hojaPlan = window.XLSX.utils.json_to_sheet(filasPlan);
+  window.XLSX.utils.book_append_sheet(libro, hojaPlan, 'Plan de accion');
+
+  window.XLSX.writeFile(libro, 'reporte-nom035-' + estado.periodo + '.xlsx');
+}
+
+// =======================================================================
+// GENERACION: WORD (docx)
+// =======================================================================
+async function generarWord() {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } = window.docx;
+  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
+  const ranking = construirRankingDominios(estado.resultados);
+  const categorias = construirTablaCategorias(estado.resultados);
+  const plan = construirPlanDeAccion(estado.resultados);
+
+  function filaTabla(celdas, encabezado) {
+    return new TableRow({
+      children: celdas.map((texto) => new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: String(texto), bold: !!encabezado })] })],
+      })),
+    });
+  }
+
+  const tablaCategoriasDocx = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      filaTabla(['Categoria', 'Puntaje', 'Nivel'], true),
+      ...categorias.map((c) => filaTabla([c.nombre, c.puntaje, c.etiqueta])),
+    ],
+  });
+
+  const tablaDominiosDocx = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      filaTabla(['#', 'Dominio', 'Puntaje', 'Nivel'], true),
+      ...ranking.map((d, i) => filaTabla([i + 1, d.nombre, d.puntaje, NIVEL_ETIQUETA[d.nivel_riesgo]])),
+    ],
+  });
+
+  const documento = new Document({
+    sections: [{
+      children: [
+        new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+        new Paragraph({ text: 'Reporte Tecnico NOM-035 · Guia de Referencia III', heading: HeadingLevel.HEADING_1 }),
+        new Paragraph({ text: 'Periodo: ' + resumen.periodo + '   ·   Generado: ' + resumen.fechaGeneracion }),
+        new Paragraph({ text: 'Respuestas anonimas incluidas: ' + resumen.totalRespuestas }),
+        new Paragraph({ text: '' }),
+
+        new Paragraph({ text: 'Objetivo', heading: HeadingLevel.HEADING_2 }),
+        new Paragraph({ text: TEXTO_OBJETIVO }),
+        new Paragraph({ text: 'Metodologia', heading: HeadingLevel.HEADING_2 }),
+        new Paragraph({ text: TEXTO_METODOLOGIA }),
+        new Paragraph({ text: 'Cumplimiento normativo', heading: HeadingLevel.HEADING_2 }),
+        new Paragraph({ text: TEXTO_CUMPLIMIENTO }),
+
+        new Paragraph({ text: 'Resultados por categoria', heading: HeadingLevel.HEADING_2 }),
+        tablaCategoriasDocx,
+        new Paragraph({ text: '' }),
+        new Paragraph({ text: 'Ranking de dominios', heading: HeadingLevel.HEADING_2 }),
+        tablaDominiosDocx,
+        new Paragraph({ text: '' }),
+
+        new Paragraph({ text: 'Plan de accion', heading: HeadingLevel.HEADING_2 }),
+        new Paragraph({ text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[plan.nivelGlobal].toLowerCase() + ')', heading: HeadingLevel.HEADING_3 }),
+        new Paragraph({ text: plan.accionOficial }),
+        new Paragraph({ text: 'Dominios prioritarios', heading: HeadingLevel.HEADING_3 }),
+        ...(plan.dominiosPrioritarios.length > 0
+          ? plan.dominiosPrioritarios.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
+          : [new Paragraph({ text: 'No se identificaron dominios en nivel alto o muy alto.' })]),
+        new Paragraph({ text: 'Fortalezas', heading: HeadingLevel.HEADING_3 }),
+        ...(plan.fortalezas.length > 0
+          ? plan.fortalezas.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
+          : [new Paragraph({ text: 'No se identificaron dominios en nivel nulo o bajo.' })]),
+      ],
+    }],
+  });
+
+  const blob = await Packer.toBlob(documento);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'reporte-tecnico-nom035-' + estado.periodo + '.docx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =======================================================================
+// GENERACION: POWERPOINT (pptxgenjs)
+// =======================================================================
+function generarPowerPoint() {
+  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
+  const ranking = construirRankingDominios(estado.resultados);
+  const plan = construirPlanDeAccion(estado.resultados);
+
+  const pres = new window.PptxGenJS();
+  pres.defineLayout({ name: 'RIVERLINE', width: 10, height: 5.63 });
+  pres.layout = 'RIVERLINE';
+
+  // Portada
+  let slide = pres.addSlide();
+  slide.background = { color: '15161A' };
+  slide.addText('Riverline', { x: 0.5, y: 0.5, fontSize: 14, bold: true, color: 'E50D2E' });
+  slide.addText('Reporte Ejecutivo NOM-035', { x: 0.5, y: 2.1, fontSize: 32, bold: true, color: 'FFFFFF' });
+  slide.addText('Guia de Referencia III · Periodo ' + resumen.periodo, { x: 0.5, y: 2.9, fontSize: 14, color: 'C7C9D1' });
+  slide.addText('Generado: ' + resumen.fechaGeneracion + '  ·  Respuestas anonimas: ' + resumen.totalRespuestas, { x: 0.5, y: 3.3, fontSize: 11, color: '8A8D97' });
+
+  // Objetivo
+  slide = pres.addSlide();
+  slide.addText('Objetivo', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+  slide.addText(TEXTO_OBJETIVO, { x: 0.5, y: 1.3, w: 9, fontSize: 15, color: '4A4D57' });
+
+  // Calificacion global
+  slide = pres.addSlide();
+  slide.addText('Calificacion global', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+  slide.addText(String(resumen.puntajeGlobal), { x: 0.5, y: 1.4, fontSize: 60, bold: true, color: colorNivelHex(resumen.nivelGlobal).replace('#', '') });
+  slide.addText(resumen.etiquetaGlobal, { x: 0.5, y: 3.1, fontSize: 20, bold: true, color: colorNivelHex(resumen.nivelGlobal).replace('#', '') });
+  slide.addText('Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.', { x: 0.5, y: 3.7, w: 8, fontSize: 11, color: '8A8D97' });
+
+  // Ranking de dominios (grafica de barras nativa)
+  slide = pres.addSlide();
+  slide.addText('Ranking de dominios', { x: 0.5, y: 0.35, fontSize: 20, bold: true, color: '15161A' });
+  slide.addChart(pres.ChartType.bar, [{
+    name: 'Severidad relativa (%)',
+    labels: ranking.map((d) => d.nombre),
+    values: ranking.map((d) => d.porcentaje),
+  }], { x: 0.4, y: 1.0, w: 9, h: 4.3, barDir: 'bar', showValue: true, chartColors: ranking.map((d) => colorNivelHex(d.nivel_riesgo).replace('#', '')) });
+
+  // Plan de accion - interpretacion oficial
+  slide = pres.addSlide();
+  slide.addText('Plan de accion', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+  slide.addText('Interpretacion oficial (nivel ' + resumen.etiquetaGlobal.toLowerCase() + ')', { x: 0.5, y: 1.15, fontSize: 14, bold: true, color: '4A4D57' });
+  slide.addText(plan.accionOficial, { x: 0.5, y: 1.6, w: 9, fontSize: 12.5, color: '1F2128' });
+
+  // Dominios prioritarios
+  slide = pres.addSlide();
+  slide.addText('Dominios prioritarios', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+  const textoCriticos = plan.dominiosPrioritarios.length > 0
+    ? plan.dominiosPrioritarios.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
+    : [{ text: 'No se identificaron dominios en nivel alto o muy alto.' }];
+  slide.addText(textoCriticos, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
+
+  // Fortalezas
+  slide = pres.addSlide();
+  slide.addText('Fortalezas', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+  const textoFortalezas = plan.fortalezas.length > 0
+    ? plan.fortalezas.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
+    : [{ text: 'No se identificaron dominios en nivel nulo o bajo.' }];
+  slide.addText(textoFortalezas, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
+
+  pres.writeFile({ fileName: 'reporte-ejecutivo-nom035-' + estado.periodo + '.pptx' });
+}
+
+// =======================================================================
+// UI: resumen, wiring, arranque
+// =======================================================================
+function iconoDoc(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>'; }
+
+function renderResumen() {
+  const r = construirResumenPeriodo(estado.resultados, estado.periodo);
+  const contenedor = document.getElementById('resumen-periodo');
+  contenedor.innerHTML =
+    '<div class="resumen-fila"><span>Periodo</span><span>' + r.periodo + '</span></div>' +
+    '<div class="resumen-fila"><span>Respuestas anonimas</span><span>' + r.totalRespuestas + '</span></div>' +
+    '<div class="resumen-fila"><span>Calificacion global</span><span>' + r.puntajeGlobal + ' (' + r.etiquetaGlobal + ')</span></div>' +
+    '<div class="resumen-fila"><span>Fecha de generacion</span><span>' + r.fechaGeneracion + '</span></div>';
+}
+
+function mostrarToast(msg) {
+  const existente = document.querySelector('.toast');
+  if (existente) existente.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3000);
+}
+
+function envolverConToast(fn, mensajeExito) {
+  return async function () {
+    try {
+      await fn();
+      mostrarToast(mensajeExito);
+    } catch (e) {
+      console.error(e);
+      mostrarToast('No se pudo generar el archivo. Revisa la consola.');
+    }
+  };
+}
+
+function inicializarEventos() {
+  document.getElementById('btn-pdf-ejecutivo').addEventListener('click', envolverConToast(() => generarPDF('ejecutivo'), 'PDF Ejecutivo generado.'));
+  document.getElementById('btn-pdf-tecnico').addEventListener('click', envolverConToast(() => generarPDF('tecnico'), 'PDF Tecnico generado.'));
+  document.getElementById('btn-excel').addEventListener('click', envolverConToast(() => generarExcel(), 'Excel generado.'));
+  document.getElementById('btn-word').addEventListener('click', envolverConToast(() => generarWord(), 'Word generado.'));
+  document.getElementById('btn-ppt').addEventListener('click', envolverConToast(() => generarPowerPoint(), 'PowerPoint generado.'));
+}
+
+async function cargarResultados() {
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').style.display = 'inline-block';
+    estado.resultados = generarResultadosDemo();
+    return;
+  }
+  const resp = await supabase.rpc('obtener_resultados_periodo', { p_periodo: estado.periodo });
+  if (resp.error) { mostrarToast('Error al cargar resultados.'); return; }
+  estado.resultados = resp.data;
+}
+
+async function iniciar() {
+  await cargarResultados();
+  renderResumen();
+  inicializarEventos();
+}
+iniciar();
+</script>
+</body>
+</html>

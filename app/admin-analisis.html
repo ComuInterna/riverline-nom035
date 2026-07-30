@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Analisis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --nulo:#1f8a4c; --nulo-bg:#e8f6ee;
+    --bajo:#6fae4a; --bajo-bg:#eef6e6;
+    --medio:#c99a2e; --medio-bg:#fbf3dd;
+    --alto:#e2711d; --alto-bg:#fdece0;
+    --muy_alto:#e50d2e; --muy_alto-bg:#fdeaec;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:1180px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  select.selector-periodo{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;}
+  .pill-demo{font-size:11px;font-weight:700;background:var(--medio-bg);color:var(--medio);padding:5px 10px;border-radius:100px;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;}
+  .panel-titulo{font-size:16px;font-weight:800;margin:0 0 4px;}
+  .panel-sub{font-size:12.5px;color:var(--gris-500);margin:0 0 18px;}
+
+  .grid-2{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;}
+  .gauge-cifra{font-size:38px;font-weight:800;letter-spacing:-.02em;margin-top:-46px;}
+  .gauge-nivel{font-size:14px;font-weight:700;padding:5px 14px;border-radius:100px;margin-top:6px;}
+  .gauge-detalle{font-size:12.5px;color:var(--gris-500);margin-top:10px;text-align:center;max-width:320px;}
+
+  .badge-nivel{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:100px;}
+
+  .ranking-fila{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gris-100);}
+  .ranking-fila:last-child{border-bottom:none;}
+  .ranking-num{width:22px;height:22px;border-radius:6px;background:var(--gris-100);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--gris-700);flex-shrink:0;}
+  .ranking-info{flex:1;min-width:0;}
+  .ranking-nombre{font-size:13.5px;font-weight:700;}
+  .ranking-categoria{font-size:11.5px;color:var(--gris-500);}
+  .ranking-barra-track{height:6px;background:var(--gris-100);border-radius:100px;margin-top:6px;overflow:hidden;}
+  .ranking-barra-fill{height:100%;border-radius:100px;}
+
+  table.heatmap{border-collapse:collapse;width:100%;font-size:12px;}
+  table.heatmap th{padding:8px;font-size:11px;font-weight:700;color:var(--gris-500);text-transform:uppercase;letter-spacing:.02em;text-align:center;}
+  table.heatmap th:first-child{text-align:left;}
+  table.heatmap td{padding:8px;text-align:center;}
+  table.heatmap td:first-child{text-align:left;font-weight:700;font-size:12.5px;}
+  .celda-nivel{border-radius:8px;padding:8px 4px;font-weight:700;font-size:11.5px;}
+  .celda-insuficiente{color:var(--gris-500);font-size:10.5px;background:var(--gris-100);border-radius:8px;padding:8px 4px;}
+
+  .plan-bloque{margin-bottom:18px;}
+  .plan-bloque h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--gris-700);margin:0 0 8px;}
+  .plan-bloque p{font-size:14px;line-height:1.55;margin:0 0 10px;color:var(--gris-900);}
+  .lista-plan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .lista-plan li{display:flex;align-items:center;gap:10px;font-size:13.5px;}
+  .lista-plan .punto{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .accion-oficial{background:var(--gris-100);border-left:3px solid var(--rojo);padding:14px 16px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:13.5px;line-height:1.5;color:var(--gris-900);}
+
+  canvas{max-width:100%;}
+
+  @media (prefers-color-scheme: dark){
+    :root{
+      --gris-100:#121317; --gris-200:#26282f; --blanco:#1b1c22;
+      --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89;
+    }
+    body{background:#0c0d10;}
+    .panel{background:#1b1c22;}
+    select.selector-periodo{background:#1b1c22;color:var(--negro);}
+    .accion-oficial{background:#26282f;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Analisis</small></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+      <select class="selector-periodo" id="selector-periodo"></select>
+    </div>
+  </header>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-titulo">Calificacion global (Cfinal)</div>
+      <div class="panel-sub">Nivel de riesgo psicosocial general del centro de trabajo</div>
+      <div class="gauge-wrap" id="gauge-global"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-titulo">Perfil por categoria</div>
+      <div class="panel-sub">Radar normalizado: 100% = umbral de riesgo muy alto de cada categoria</div>
+      <canvas id="chart-radar" height="220"></canvas>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-titulo">Ranking de dominios</div>
+    <div class="panel-sub">Ordenados de mayor a menor severidad relativa (normalizado contra el umbral de riesgo muy alto de cada dominio)</div>
+    <div id="lista-ranking"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-titulo">Mapa de calor: categoria x departamento</div>
+    <div class="panel-sub">Solo se muestran celdas con al menos <span id="texto-minimo-n"></span> respuestas, para preservar el anonimato</div>
+    <div id="contenedor-heatmap" style="overflow-x:auto;"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-titulo">Plan de accion</div>
+    <div class="panel-sub">Generado automaticamente a partir de los resultados reales de esta aplicacion — nunca se inventa informacion</div>
+    <div id="contenedor-plan"></div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   MODULO 6 - ADMINISTRADOR: ANALISIS NOM-035
+   Gauge global, radar por categoria, ranking de dominios, heatmap
+   categoria x departamento (respetando el minimo de N), y plan de
+   accion generado a partir de resultados reales.
+
+   INTEGRACION SUPABASE (produccion):
+   - Reemplaza SUPABASE_URL / SUPABASE_ANON_KEY.
+   - Lee agregados de encuestas.calificaciones y encuestas.aplicaciones
+     (ambas anonimas). NUNCA hace join con seguimiento.colaboradores.
+   - El catalogo.rangos_riesgo_* se usa para normalizar y para el mapa
+     de calor; se lee en vivo, nunca hardcodeado.
+   - El texto de catalogo.acciones_por_nivel (oficial, Tabla 7 / III.4)
+     se usa verbatim en el plan de accion.
+
+   MODO DEMO: usa un conjunto de resultados de ejemplo, coherente con
+   los rangos oficiales, para poder revisar el modulo sin backend.
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+const MINIMO_N_DEPARTAMENTO = 5;
+
+let supabase = null;
+if (!MODO_DEMO) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
+
+const CATEGORIAS_CATALOGO = [
+  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+];
+const DOMINIOS_CATALOGO = [
+  { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
+  { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
+  { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
+  { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
+  { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
+  { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
+  { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
+  { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
+];
+const RANGOS_CATEGORIA = [
+  { categoria_id: 'CAT_AMBIENTE', nivel: 'nulo', limite_superior: 5 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'bajo', limite_superior: 9 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'medio', limite_superior: 11 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'alto', limite_superior: 14 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'muy_alto', limite_superior: null, limite_inferior: 14 },
+  { categoria_id: 'CAT_FACTORES', nivel: 'nulo', limite_superior: 15 }, { categoria_id: 'CAT_FACTORES', nivel: 'bajo', limite_superior: 30 }, { categoria_id: 'CAT_FACTORES', nivel: 'medio', limite_superior: 45 }, { categoria_id: 'CAT_FACTORES', nivel: 'alto', limite_superior: 60 }, { categoria_id: 'CAT_FACTORES', nivel: 'muy_alto', limite_superior: null, limite_inferior: 60 },
+  { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'nulo', limite_superior: 5 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'bajo', limite_superior: 7 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'medio', limite_superior: 10 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'alto', limite_superior: 13 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 13 },
+  { categoria_id: 'CAT_LIDERAZGO', nivel: 'nulo', limite_superior: 14 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'bajo', limite_superior: 29 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'medio', limite_superior: 42 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'alto', limite_superior: 58 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 58 },
+  { categoria_id: 'CAT_ENTORNO', nivel: 'nulo', limite_superior: 10 }, { categoria_id: 'CAT_ENTORNO', nivel: 'bajo', limite_superior: 14 }, { categoria_id: 'CAT_ENTORNO', nivel: 'medio', limite_superior: 18 }, { categoria_id: 'CAT_ENTORNO', nivel: 'alto', limite_superior: 23 }, { categoria_id: 'CAT_ENTORNO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 23 },
+];
+const RANGOS_DOMINIO = [
+  { dominio_id: 'DOM_CONDICIONES', nivel: 'muy_alto', limite_inferior: 14 },
+  { dominio_id: 'DOM_CARGA', nivel: 'muy_alto', limite_inferior: 37 },
+  { dominio_id: 'DOM_CONTROL', nivel: 'muy_alto', limite_inferior: 25 },
+  { dominio_id: 'DOM_JORNADA', nivel: 'muy_alto', limite_inferior: 6 },
+  { dominio_id: 'DOM_INTERFERENCIA', nivel: 'muy_alto', limite_inferior: 10 },
+  { dominio_id: 'DOM_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 20 },
+  { dominio_id: 'DOM_RELACIONES', nivel: 'muy_alto', limite_inferior: 21 },
+  { dominio_id: 'DOM_VIOLENCIA', nivel: 'muy_alto', limite_inferior: 16 },
+  { dominio_id: 'DOM_RECONOCIMIENTO', nivel: 'muy_alto', limite_inferior: 18 },
+  { dominio_id: 'DOM_PERTENENCIA', nivel: 'muy_alto', limite_inferior: 10 },
+];
+const RANGO_GLOBAL = [
+  { nivel: 'nulo', limite_superior: 50 }, { nivel: 'bajo', limite_superior: 75 },
+  { nivel: 'medio', limite_superior: 99 }, { nivel: 'alto', limite_superior: 140 },
+  { nivel: 'muy_alto', limite_superior: null, limite_inferior: 140 },
+];
+const ACCIONES_POR_NIVEL = {
+  muy_alto: 'Se requiere realizar el analisis de cada categoria y dominio para establecer las acciones de intervencion apropiadas, mediante un Programa de intervencion que debera incluir evaluaciones especificas, y contemplar campanas de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
+  alto: 'Se requiere realizar un analisis de cada categoria y dominio, de manera que se puedan determinar las acciones de intervencion apropiadas a traves de un Programa de intervencion, que podra incluir una evaluacion especifica y debera incluir una campana de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
+  medio: 'Se requiere revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion, mediante un Programa de intervencion.',
+  bajo: 'Es necesario una mayor difusion de la politica de prevencion de riesgos psicosociales y programas para: la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral.',
+  nulo: 'El riesgo resulta despreciable por lo que no se requiere medidas adicionales.',
+};
+
+function determinarNivelPorLimite(valor, rangos) {
+  const orden = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
+  const ordenados = orden.map((n) => rangos.find((r) => r.nivel === n)).filter(Boolean);
+  for (const r of ordenados) {
+    const sup = r.limite_superior == null ? Infinity : r.limite_superior;
+    if (valor < sup) return r.nivel;
+  }
+  return 'muy_alto';
+}
+
+function normalizarContraMuyAlto(puntaje, limiteInferiorMuyAlto) {
+  if (!limiteInferiorMuyAlto || limiteInferiorMuyAlto <= 0) return 0;
+  return Math.round((puntaje / limiteInferiorMuyAlto) * 100);
+}
+
+function prepararDatosRadar(porCategoria, rangosCategoria, categoriasCatalogo) {
+  const nombrePorId = new Map(categoriasCatalogo.map((c) => [c.id, c.nombre]));
+  return porCategoria.map((pc) => {
+    const rangoMuyAlto = rangosCategoria.find((r) => r.categoria_id === pc.categoria_id && r.nivel === 'muy_alto');
+    const limite = rangoMuyAlto ? rangoMuyAlto.limite_inferior : null;
+    return {
+      categoria_id: pc.categoria_id,
+      nombre: nombrePorId.get(pc.categoria_id) || pc.categoria_id,
+      puntaje: pc.puntaje,
+      nivel_riesgo: pc.nivel_riesgo,
+      porcentaje: limite ? normalizarContraMuyAlto(pc.puntaje, limite) : 0,
+    };
+  });
+}
+
+function prepararRankingDominios(porDominio, rangosDominio, dominiosCatalogo) {
+  const nombrePorId = new Map(dominiosCatalogo.map((d) => [d.id, d.nombre]));
+  const categoriaPorId = new Map(dominiosCatalogo.map((d) => [d.id, d.categoria_id]));
+  const enriquecidos = porDominio.map((pd) => {
+    const rangoMuyAlto = rangosDominio.find((r) => r.dominio_id === pd.dominio_id);
+    const limite = rangoMuyAlto ? rangoMuyAlto.limite_inferior : null;
+    return {
+      dominio_id: pd.dominio_id,
+      nombre: nombrePorId.get(pd.dominio_id) || pd.dominio_id,
+      categoria_id: categoriaPorId.get(pd.dominio_id),
+      puntaje: pd.puntaje,
+      nivel_riesgo: pd.nivel_riesgo,
+      porcentaje: limite ? normalizarContraMuyAlto(pd.puntaje, limite) : 0,
+    };
+  });
+  enriquecidos.sort((a, b) => {
+    const diffNivel = NIVEL_ORDEN[b.nivel_riesgo] - NIVEL_ORDEN[a.nivel_riesgo];
+    if (diffNivel !== 0) return diffNivel;
+    return b.porcentaje - a.porcentaje;
+  });
+  return enriquecidos;
+}
+
+function clasificarFortalezasYCriticas(rankingDominios, porCategoriaEnriquecido) {
+  const fortalezasDominios = rankingDominios.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] <= 1).sort((a, b) => a.porcentaje - b.porcentaje);
+  const criticosDominios = rankingDominios.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] >= 3);
+  const criticasCategorias = porCategoriaEnriquecido.filter((c) => NIVEL_ORDEN[c.nivel_riesgo] >= 3).sort((a, b) => b.porcentaje - a.porcentaje);
+  return { fortalezasDominios, criticosDominios, criticasCategorias };
+}
+
+function generarPlanDeAccion(args) {
+  const global = args.global, rankingDominios = args.rankingDominios, categoriasEnriquecidas = args.categoriasEnriquecidas, accionesPorNivel = args.accionesPorNivel;
+  const clasificacion = clasificarFortalezasYCriticas(rankingDominios, categoriasEnriquecidas);
+  return {
+    nivelGlobal: global.nivel_riesgo,
+    accionOficial: accionesPorNivel[global.nivel_riesgo],
+    dominiosPrioritarios: clasificacion.criticosDominios.slice(0, 5),
+    categoriasPrioritarias: clasificacion.criticasCategorias,
+    fortalezas: clasificacion.fortalezasDominios.slice(0, 5),
+    hayAreasCriticas: clasificacion.criticosDominios.length > 0,
+  };
+}
+
+function construirHeatmap(datosPorDepartamento, minimoN) {
+  return datosPorDepartamento.map((fila) => ({
+    departamento: fila.departamento,
+    n: fila.n,
+    celdas: fila.celdas.map((c) => ({
+      categoria_id: c.categoria_id,
+      suficiente: fila.n >= minimoN,
+      nivel_riesgo: fila.n >= minimoN ? c.nivel_riesgo : null,
+    })),
+  }));
+}
+
+function generarResultadosDemo() {
+  const porDominio = [
+    { dominio_id: 'DOM_CONDICIONES', puntaje: 6, nivel_riesgo: 'bajo' },
+    { dominio_id: 'DOM_CARGA', puntaje: 30, nivel_riesgo: 'alto' },
+    { dominio_id: 'DOM_CONTROL', puntaje: 12, nivel_riesgo: 'bajo' },
+    { dominio_id: 'DOM_JORNADA', puntaje: 5, nivel_riesgo: 'muy_alto' },
+    { dominio_id: 'DOM_INTERFERENCIA', puntaje: 5, nivel_riesgo: 'medio' },
+    { dominio_id: 'DOM_LIDERAZGO', puntaje: 8, nivel_riesgo: 'bajo' },
+    { dominio_id: 'DOM_RELACIONES', puntaje: 9, nivel_riesgo: 'bajo' },
+    { dominio_id: 'DOM_VIOLENCIA', puntaje: 18, nivel_riesgo: 'muy_alto' },
+    { dominio_id: 'DOM_RECONOCIMIENTO', puntaje: 15, nivel_riesgo: 'alto' },
+    { dominio_id: 'DOM_PERTENENCIA', puntaje: 3, nivel_riesgo: 'bajo' },
+  ];
+  const porCategoria = [
+    { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
+    { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
+    { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
+    { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
+    { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
+  ];
+  const global = { puntaje: 111, nivel_riesgo: 'alto' };
+
+  const departamentos = ['Produccion', 'Calidad', 'Logistica', 'Ventas', 'Administracion'];
+  const nivelesEjemplo = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
+  const porDepartamento = departamentos.map((dep, i) => ({
+    departamento: dep,
+    n: i === 3 ? 2 : 6 + i * 3,
+    celdas: CATEGORIAS_CATALOGO.map((cat, j) => ({
+      categoria_id: cat.id,
+      nivel_riesgo: nivelesEjemplo[(i + j) % nivelesEjemplo.length],
+    })),
+  }));
+
+  return { global: global, porCategoria: porCategoria, porDominio: porDominio, porDepartamento: porDepartamento };
+}
+
+const estado = { resultados: null };
+window.estado = estado;
+
+function colorNivel(nivel) {
+  return getComputedStyle(document.documentElement).getPropertyValue('--' + nivel).trim() || '#999';
+}
+
+function renderGauge(global) {
+  const contenedor = document.getElementById('gauge-global');
+  const max = 180;
+  const pct = Math.min(1, global.puntaje / max);
+  const angulo = -90 + pct * 180;
+  const color = colorNivel(global.nivel_riesgo);
+
+  const zonas = RANGO_GLOBAL.map((r, i) => {
+    const desde = i === 0 ? 0 : RANGO_GLOBAL[i - 1].limite_superior;
+    const hasta = r.limite_superior == null ? max : r.limite_superior;
+    return { nivel: r.nivel, desde: Math.min(desde, max), hasta: Math.min(hasta, max) };
+  });
+
+  function arcoPath(desdePct, hastaPct, radio) {
+    const a0 = -90 + desdePct * 180, a1 = -90 + hastaPct * 180;
+    function toXY(ang) { return [100 + radio * Math.cos((ang * Math.PI) / 180), 100 + radio * Math.sin((ang * Math.PI) / 180)]; }
+    const p0 = toXY(a0), p1 = toXY(a1);
+    const largeArc = hastaPct - desdePct > 0.5 ? 1 : 0;
+    return 'M ' + p0[0] + ' ' + p0[1] + ' A ' + radio + ' ' + radio + ' 0 ' + largeArc + ' 1 ' + p1[0] + ' ' + p1[1];
+  }
+
+  const zonasSVG = zonas.map(function(z) {
+    const d = arcoPath(z.desde / max, z.hasta / max, 80);
+    return '<path d="' + d + '" stroke="' + colorNivel(z.nivel) + '" stroke-width="14" fill="none" stroke-linecap="butt" opacity="0.35"/>';
+  }).join('');
+
+  const rad = (angulo * Math.PI) / 180;
+  const agujaX = 100 + 68 * Math.cos(rad);
+  const agujaY = 100 + 68 * Math.sin(rad);
+
+  contenedor.innerHTML =
+    '<svg viewBox="0 0 200 115" width="260">' + zonasSVG +
+    '<line x1="100" y1="100" x2="' + agujaX + '" y2="' + agujaY + '" stroke="' + color + '" stroke-width="4" stroke-linecap="round"/>' +
+    '<circle cx="100" cy="100" r="6" fill="' + color + '"/></svg>' +
+    '<div class="gauge-cifra">' + global.puntaje + '</div>' +
+    '<div class="gauge-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[global.nivel_riesgo] + '</div>' +
+    '<div class="gauge-detalle">Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.</div>';
+}
+
+let chartRadarInstancia = null;
+function renderRadar(datosRadar) {
+  const canvas = document.getElementById('chart-radar');
+  if (chartRadarInstancia) chartRadarInstancia.destroy();
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  if (!ctx || typeof window.Chart === 'undefined') {
+    return;
+  }
+  chartRadarInstancia = new window.Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: datosRadar.map(function(d){ return d.nombre; }),
+      datasets: [{
+        label: 'Puntaje (% del umbral muy alto)',
+        data: datosRadar.map(function(d){ return d.porcentaje; }),
+        backgroundColor: 'rgba(229,13,46,0.15)',
+        borderColor: '#e50d2e',
+        pointBackgroundColor: '#e50d2e',
+      }],
+    },
+    options: {
+      scales: { r: { min: 0, suggestedMax: 120, ticks: { display: false } } },
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+function renderRanking(ranking) {
+  const contenedor = document.getElementById('lista-ranking');
+  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
+  contenedor.innerHTML = ranking.map(function(d, i) {
+    const color = colorNivel(d.nivel_riesgo);
+    const anchoBarra = Math.min(100, d.porcentaje);
+    return '<div class="ranking-fila">' +
+      '<div class="ranking-num">' + (i + 1) + '</div>' +
+      '<div class="ranking-info">' +
+        '<div class="ranking-nombre">' + d.nombre + '</div>' +
+        '<div class="ranking-categoria">' + (nombreCategoria.get(d.categoria_id) || '') + '</div>' +
+        '<div class="ranking-barra-track"><div class="ranking-barra-fill" style="width:' + anchoBarra + '%;background:' + color + ';"></div></div>' +
+      '</div>' +
+      '<span class="badge-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[d.nivel_riesgo] + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function renderHeatmap(heatmap) {
+  document.getElementById('texto-minimo-n').textContent = MINIMO_N_DEPARTAMENTO;
+  const contenedor = document.getElementById('contenedor-heatmap');
+  const encabezados = CATEGORIAS_CATALOGO.map(function(c) {
+    return '<th>' + (c.nombre.length > 22 ? c.nombre.slice(0, 20) + '\u2026' : c.nombre) + '</th>';
+  }).join('');
+  const filas = heatmap.map(function(fila) {
+    const celdas = fila.celdas.map(function(c) {
+      if (!c.suficiente) return '<td><div class="celda-insuficiente">Muestra insuficiente</div></td>';
+      const color = colorNivel(c.nivel_riesgo);
+      return '<td><div class="celda-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[c.nivel_riesgo] + '</div></td>';
+    }).join('');
+    return '<tr><td>' + fila.departamento + ' <span style="color:var(--gris-500);font-weight:500;">(n=' + fila.n + ')</span></td>' + celdas + '</tr>';
+  }).join('');
+  contenedor.innerHTML = '<table class="heatmap"><thead><tr><th>Departamento</th>' + encabezados + '</tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+function renderPlan(plan) {
+  const contenedor = document.getElementById('contenedor-plan');
+  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
+
+  const listaCriticos = plan.dominiosPrioritarios.length > 0
+    ? '<ul class="lista-plan">' + plan.dominiosPrioritarios.map(function(d) {
+        return '<li><span class="punto" style="background:' + colorNivel(d.nivel_riesgo) + ';"></span>' + d.nombre + ' \u2014 ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '</li>';
+      }).join('') + '</ul>'
+    : '<p>No se identificaron dominios en nivel alto o muy alto en esta aplicacion.</p>';
+
+  const listaFortalezas = plan.fortalezas.length > 0
+    ? '<ul class="lista-plan">' + plan.fortalezas.map(function(d) {
+        return '<li><span class="punto" style="background:' + colorNivel(d.nivel_riesgo) + ';"></span>' + d.nombre + ' \u2014 ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '</li>';
+      }).join('') + '</ul>'
+    : '<p>No se identificaron dominios en nivel nulo o bajo en esta aplicacion.</p>';
+
+  const listaCategoriasCriticas = plan.categoriasPrioritarias.length > 0
+    ? '<ul class="lista-plan">' + plan.categoriasPrioritarias.map(function(c) {
+        return '<li><span class="punto" style="background:' + colorNivel(c.nivel_riesgo) + ';"></span>' + nombreCategoria.get(c.categoria_id) + ' \u2014 ' + NIVEL_ETIQUETA[c.nivel_riesgo] + '</li>';
+      }).join('') + '</ul>'
+    : '';
+
+  contenedor.innerHTML =
+    '<div class="plan-bloque"><h3>Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[plan.nivelGlobal].toLowerCase() + ')</h3>' +
+    '<div class="accion-oficial">' + plan.accionOficial + '</div></div>' +
+    '<div class="plan-bloque"><h3>Dominios prioritarios</h3>' + listaCriticos + '</div>' +
+    (plan.categoriasPrioritarias.length > 0 ? ('<div class="plan-bloque"><h3>Categorias prioritarias</h3>' + listaCategoriasCriticas + '</div>') : '') +
+    '<div class="plan-bloque"><h3>Fortalezas</h3>' + listaFortalezas + '</div>';
+}
+
+function renderTodo() {
+  const r = estado.resultados;
+  const rankingDominios = prepararRankingDominios(r.porDominio, RANGOS_DOMINIO, DOMINIOS_CATALOGO);
+  const categoriasEnriquecidas = prepararDatosRadar(r.porCategoria, RANGOS_CATEGORIA, CATEGORIAS_CATALOGO);
+  const heatmap = construirHeatmap(r.porDepartamento, MINIMO_N_DEPARTAMENTO);
+  const plan = generarPlanDeAccion({
+    global: r.global,
+    rankingDominios: rankingDominios,
+    categoriasEnriquecidas: categoriasEnriquecidas,
+    accionesPorNivel: ACCIONES_POR_NIVEL,
+  });
+
+  window.__ultimoRanking = rankingDominios;
+  window.__ultimoRadar = categoriasEnriquecidas;
+  window.__ultimoPlan = plan;
+  window.__ultimoHeatmap = heatmap;
+
+  renderGauge(r.global);
+  renderRadar(categoriasEnriquecidas);
+  renderRanking(rankingDominios);
+  renderHeatmap(heatmap);
+  renderPlan(plan);
+}
+
+async function cargarResultados(periodo) {
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').style.display = 'inline-block';
+    estado.resultados = generarResultadosDemo();
+    return;
+  }
+  const resp = await supabase.rpc('obtener_resultados_periodo', { p_periodo: periodo });
+  if (resp.error) { console.error(resp.error); return; }
+  estado.resultados = resp.data;
+}
+
+function inicializarSelectorPeriodo() {
+  const sel = document.getElementById('selector-periodo');
+  const periodos = MODO_DEMO ? ['2026-Q3 (demo)'] : [];
+  periodos.forEach(function(p){ sel.insertAdjacentHTML('beforeend', '<option value="' + p + '">' + p + '</option>'); });
+  sel.addEventListener('change', async function() {
+    await cargarResultados(sel.value);
+    renderTodo();
+  });
+}
+
+async function iniciar() {
+  inicializarSelectorPeriodo();
+  await cargarResultados(document.getElementById('selector-periodo').value);
+  renderTodo();
+}
+iniciar();
+</script>
+</body>
+</html>
