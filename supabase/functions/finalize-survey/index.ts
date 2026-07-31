@@ -27,6 +27,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 // Cliente con rol de servicio: única identidad en todo el sistema con
 // permiso de lectura sobre catalogo.* Y escritura en ambos esquemas.
 // El cliente (navegador del colaborador) NUNCA tiene este rol.
@@ -80,13 +87,37 @@ async function calificarEncuesta(
     { data: rangosDominio, error: e5 },
     { data: rangoGlobal, error: e6 },
   ] = await Promise.all([
-    supabaseAdmin.from('catalogo.reactivos').select('*'),
-    supabaseAdmin.from('catalogo.dimensiones').select('*'),
-    supabaseAdmin.from('catalogo.dominios').select('*'),
-    supabaseAdmin.from('catalogo.rangos_riesgo_categoria').select('*'),
-    supabaseAdmin.from('catalogo.rangos_riesgo_dominio').select('*'),
-    supabaseAdmin.from('catalogo.rangos_riesgo_global').select('*'),
-  ]);
+  supabaseAdmin
+    .schema("catalogo")
+    .from("reactivos")
+    .select("*"),
+
+  supabaseAdmin
+    .schema("catalogo")
+    .from("dimensiones")
+    .select("*"),
+
+  supabaseAdmin
+    .schema("catalogo")
+    .from("dominios")
+    .select("*"),
+
+  supabaseAdmin
+    .schema("catalogo")
+    .from("rangos_riesgo_categoria")
+    .select("*"),
+
+  supabaseAdmin
+    .schema("catalogo")
+    .from("rangos_riesgo_dominio")
+    .select("*"),
+
+  supabaseAdmin
+    .schema("catalogo")
+    .from("rangos_riesgo_global")
+    .select("*"),
+]);
+
   for (const err of [e1, e2, e3, e4, e5, e6]) {
     if (err) throw new Error(`Error leyendo catálogo: ${err.message}`);
   }
@@ -158,8 +189,24 @@ async function calificarEncuesta(
 // Handler HTTP
 // ---------------------------------------------------------------------
 serve(async (req) => {
+
+ if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
+  }
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Método no permitido' }), { status: 405 });
+    return new Response(
+  JSON.stringify({ error: 'Método no permitido' }),
+  {
+    status: 405,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders,
+    },
+  }
+);
   }
 
   let body: CuerpoSolicitud;
@@ -252,12 +299,29 @@ serve(async (req) => {
       .then(() => {})
       .catch(() => {}); // no crítico si falla
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (e) {
-    console.error('finalize-survey error:', e);
-    return new Response(JSON.stringify({ error: 'No se pudo finalizar la encuesta' }), { status: 500 });
-  }
+   return new Response(JSON.stringify({ ok: true }), {
+  status: 200,
+  headers: {
+    "Content-Type": "application/json",
+    ...corsHeaders,
+  },
+});
+
+} catch (e: any) {
+  console.error("finalize-survey error:", e);
+
+  return new Response(
+    JSON.stringify({
+      error: e?.message ?? String(e),
+      details: e,
+    }),
+    {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
+    }
+  );
+}
 });

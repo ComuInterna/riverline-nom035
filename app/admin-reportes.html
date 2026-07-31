@@ -120,12 +120,16 @@
    ===================================================================== */
 
 const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const SUPABASE_ANON_KEY = 'TU_ANON_KEY';
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 
-let supabase = null;
+let supabaseClient = null;
+
 if (!MODO_DEMO) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
 }
 
 const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
@@ -621,7 +625,7 @@ async function cargarResultados() {
     estado.resultados = generarResultadosDemo();
     return;
   }
-  const resp = await supabase.rpc('obtener_resultados_periodo', { p_periodo: estado.periodo });
+  const resp = await supabaseClient.rpc('obtener_resultados_periodo', { p_periodo: estado.periodo });
   if (resp.error) { mostrarToast('Error al cargar resultados.'); return; }
   estado.resultados = resp.data;
 }
