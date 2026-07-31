@@ -120,7 +120,7 @@
    ===================================================================== */
 
 const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
-const SUPABASE_ANON_KEY = 'TU_ANON_KEY';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 
 let supabaseClient = null;
@@ -626,12 +626,33 @@ async function cargarResultados() {
     return;
   }
   const resp = await supabaseClient.rpc('obtener_resultados_periodo', { p_periodo: estado.periodo });
-  if (resp.error) { mostrarToast('Error al cargar resultados.'); return; }
+  if (resp.error) {
+    console.error('obtener_resultados_periodo:', resp.error);
+    estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
+      ? 'Tu sesión no tiene permisos de administrador, o expiró. Entra de nuevo desde la página de inicio.'
+      : 'No se pudieron cargar los resultados. Revisa la consola para más detalle.';
+    return;
+  }
   estado.resultados = resp.data;
+}
+
+function deshabilitarBotonesReporte() {
+  ['btn-pdf-ejecutivo', 'btn-pdf-tecnico', 'btn-excel', 'btn-word', 'btn-ppt'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = true;
+  });
 }
 
 async function iniciar() {
   await cargarResultados();
+  if (!estado.resultados) {
+    document.getElementById('resumen-periodo').innerHTML =
+      '<p style="color:var(--rojo);font-size:13.5px;font-weight:600;">' +
+      (estado.errorCarga || 'No hay resultados disponibles todavía para este periodo.') +
+      '</p>';
+    deshabilitarBotonesReporte();
+    return;
+  }
   renderResumen();
   inicializarEventos();
 }
