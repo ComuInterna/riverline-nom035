@@ -136,7 +136,13 @@ function renderAccesos(correo) {
       '<h1 class="titulo">Hola, ' + correo + '</h1>' +
       '<p class="subtitulo">Elige a dónde quieres ir.</p>' +
       '<div class="grid-accesos">' +
-        PAGINAS.map((p) => '<a class="acceso" href="' + p.url + '"><span class="nombre">' + p.nombre + '</span><span class="desc">' + p.desc + '</span></a>').join('') +
+        PAGINAS.map((p) =>
+  '<a class="acceso" href="' + p.url + '" target="_blank" rel="noopener noreferrer">' +
+    '<span class="nombre">' + p.nombre + '</span>' +
+    '<span class="desc">' + p.desc + '</span>' +
+  '</a>'
+).join('') + 
+
       '</div>' +
       '<button class="btn btn-secundario" id="btn-salir">Cerrar sesión</button>' +
     '</div>';
