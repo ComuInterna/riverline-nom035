@@ -125,6 +125,7 @@
     font-family:var(--font);
     font-size:16px;
     background:var(--gris-100);
+    color:white;
     transition:border-color .15s ease, background .15s ease;
   }
   input.campo-input:focus{
@@ -621,7 +622,7 @@ function renderLogin() {
     try {
       const colaborador = await buscarColaborador(codigo);
       if (!colaborador) {
-        error.textContent = 'No encontramos ese código. Verifica con Desarrollo Humano.';
+        error.textContent = 'No encontramos ese código. Verifica con Gestión y Desarrollo de Talento Humano.';
         error.classList.add('visible');
         boton.disabled = false;
         boton.textContent = 'Continuar';
