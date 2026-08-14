@@ -157,30 +157,36 @@ const CATALOGO_G2 = {
 };
 
 const CENTROS_TRABAJO = [
-  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
-  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
-  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
-  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
-  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
-  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_3'] },
-  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_3'] },
-  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_3'] },
-  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
-  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
-  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
-  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
-  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_2'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_2'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_1'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_1'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_1'] },
+  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_1'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_1'] },
+  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_1'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_1'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_1'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_1'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_1'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_1'] },
 ];
 const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
 
+// null si el centro SOLO tiene Guia I activa (<15 personas). El
+// historico no tiene nada que mostrar para esos centros (Guia I es
+// individual/identificada, nunca entra a un historico agregado).
 function guiaPrincipalDeCentro(centroId) {
   const centro = CENTRO_POR_ID.get(centroId);
-  if (!centro) return 'guia_3';
-  return centro.guias_activas.indexOf('guia_2') !== -1 ? 'guia_2' : 'guia_3';
+  if (!centro) return null;
+  if (centro.guias_activas.indexOf('guia_2') !== -1) return 'guia_2';
+  if (centro.guias_activas.indexOf('guia_3') !== -1) return 'guia_3';
+  return null;
 }
 function catalogoActivo() {
+  if (estado.guiaActiva === null) return null;
   return estado.guiaActiva === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3;
 }
 
@@ -419,16 +425,26 @@ function renderTablaAplicaciones() {
 
 function actualizarPillGuia() {
   const cat = catalogoActivo();
-  document.getElementById('pill-guia').textContent = cat.etiqueta;
   const centro = CENTRO_POR_ID.get(estado.centroActivo);
+  if (!cat) {
+    document.getElementById('pill-guia').textContent = 'Guia I (individual)';
+    document.getElementById('texto-sub-tendencia').textContent =
+      (centro ? centro.nombre : 'Este centro') + ' solo tiene Guia I activa -- no hay historico anonimo que mostrar aqui.';
+    return;
+  }
+  document.getElementById('pill-guia').textContent = cat.etiqueta;
   document.getElementById('texto-sub-tendencia').textContent =
     'Evolucion de Cfinal de ' + (centro ? centro.nombre : 'este centro') + ' a traves de las aplicaciones registradas (' + cat.etiqueta + ')';
 }
 
 function renderTodo() {
   actualizarPillGuia();
-  if (estado.historico.length === 0) {
-    document.getElementById('kpi-tendencia').innerHTML = '<span style="color:var(--rojo);font-size:13px;font-weight:600;">' + (estado.errorCarga || 'No hay aplicaciones registradas todavía para este centro.') + '</span>';
+  const sinGuiaAnonima = catalogoActivo() === null;
+  if (sinGuiaAnonima || estado.historico.length === 0) {
+    const mensaje = sinGuiaAnonima
+      ? 'Este centro solo tiene Guia I activa (identifica al colaborador y se maneja de forma individual) -- no aplica un historico anonimo II/III para mostrar.'
+      : (estado.errorCarga || 'No hay aplicaciones registradas todavía para este centro.');
+    document.getElementById('kpi-tendencia').innerHTML = '<span style="color:' + (sinGuiaAnonima ? 'var(--gris-500)' : 'var(--rojo)') + ';font-size:13px;font-weight:600;">' + mensaje + '</span>';
     document.getElementById('contenedor-comparativo').innerHTML = '';
     document.getElementById('contenedor-aplicaciones').innerHTML = '';
     if (chartLineaInstancia) { chartLineaInstancia.destroy(); chartLineaInstancia = null; }
@@ -465,6 +481,10 @@ function inicializarSelectorCentro() {
 
 async function cargarHistorico() {
   estado.errorCarga = null;
+  if (estado.guiaActiva === null) {
+    estado.historico = [];
+    return;
+  }
   const catalogo = catalogoActivo();
 
   if (MODO_DEMO) {

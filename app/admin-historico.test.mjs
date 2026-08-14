@@ -1,10 +1,10 @@
 // =====================================================================
 // admin-historico.test.mjs
 // ---------------------------------------------------------------------
-// Pruebas de admin-historico.html multi-guia: selector de centro,
-// catalogo dinamico (Guia II/III) en el comparativo, y que Guia I
-// nunca aparece aqui (identifica al colaborador). Mismo patron de
-// copia sin CDNs para jsdom que el resto de los .test.mjs.
+// Pruebas de admin-historico.html multi-guia. Refleja la regla de
+// negocio real por plantilla: CEDIS (42) y City Center (15) -> Guia II;
+// las otras 13 unidades (<15 personas) solo tienen Guia I activa
+// (individual) y no tienen historico anonimo que mostrar aqui.
 // =====================================================================
 
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -28,8 +28,6 @@ function assert(cond, msg) {
 function crearVentana() {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => {
-    // getContext() de <canvas> no esta implementado en jsdom -- renderLinea()
-    // ya corta si no hay window.Chart, asi que no es un fallo real.
     if (!/getContext/.test(e.message)) console.error('[jsdomError]', e.message);
   });
   const dom = new JSDOM(html, {
@@ -43,51 +41,53 @@ function crearVentana() {
 }
 function esperar(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-async function escenario1_centroPorDefectoGuia3() {
-  console.log('\n--- Escenario 1: centro por defecto (CEDIS) usa Guia III ---');
+async function escenario1_centroPorDefectoGuia2() {
+  console.log('\n--- Escenario 1: centro por defecto (CEDIS, 42 personas) usa Guia II ---');
   const window = crearVentana();
   await esperar(250);
   const doc = window.document;
 
   assert(doc.getElementById('selector-centro').options.length === 15, 'selector de centro tiene 15 opciones');
   assert(window.estado.centroActivo === 'CEDIS', 'centro por defecto es CEDIS');
-  assert(window.estado.guiaActiva === 'guia_3', 'guiaActiva inicial es guia_3');
-  assert(doc.getElementById('pill-guia').textContent === 'Guia III', 'pill muestra "Guia III"');
+  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva inicial es guia_2');
+  assert(doc.getElementById('pill-guia').textContent === 'Guia II', 'pill muestra "Guia II"');
   assert(window.estado.historico.length === 5, 'historico demo tiene 5 periodos');
   assert(doc.querySelectorAll('.tabla-aplicaciones tbody tr').length === 5, 'tabla de aplicaciones tiene 5 filas');
-  assert(doc.querySelectorAll('.tabla-comparativo tbody tr').length === 6, 'comparativo tiene 1 fila global + 5 categorias (Guia III)');
-}
-
-async function escenario2_cambioACentroGuia2() {
-  console.log('\n--- Escenario 2: cambiar a un centro con Guia II (Foro 4) ---');
-  const window = crearVentana();
-  await esperar(250);
-  const doc = window.document;
-
-  const sel = doc.getElementById('selector-centro');
-  sel.value = 'FORO_4';
-  sel.dispatchEvent(new window.Event('change'));
-  await esperar(250);
-
-  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva cambia a guia_2 en Foro 4');
-  assert(doc.getElementById('pill-guia').textContent === 'Guia II', 'pill muestra "Guia II"');
-  assert(doc.getElementById('texto-sub-tendencia').textContent.indexOf('Foro 4') !== -1, 'subtitulo menciona el centro');
   assert(doc.querySelectorAll('.tabla-comparativo tbody tr').length === 5, 'comparativo tiene 1 fila global + 4 categorias (Guia II)');
 }
 
-async function escenario3_centroConGuia1NuncaMuestraGuia1() {
-  console.log('\n--- Escenario 3: un centro con Guia III + Guia I nunca usa Guia I aqui ---');
+async function escenario2_cityCenterTambienGuia2() {
+  console.log('\n--- Escenario 2: City Center (15 personas) también usa Guía II ---');
   const window = crearVentana();
   await esperar(250);
   const doc = window.document;
 
   const sel = doc.getElementById('selector-centro');
-  sel.value = 'TOLUCA'; // guias_activas: ['guia_3', 'guia_1']
+  sel.value = 'CITY_CENTER';
   sel.dispatchEvent(new window.Event('change'));
   await esperar(250);
 
-  assert(window.estado.guiaActiva === 'guia_3', 'Toluca (III+I) resuelve a guia_3, nunca guia_1');
-  assert(doc.querySelectorAll('.tabla-comparativo tbody tr').length === 6, 'sigue mostrando el catalogo de 5 categorias de Guia III');
+  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva es guia_2 en City Center');
+  assert(doc.getElementById('texto-sub-tendencia').textContent.indexOf('City Center') !== -1, 'subtitulo menciona el centro');
+  assert(doc.querySelectorAll('.tabla-comparativo tbody tr').length === 5, 'comparativo tiene 1 fila global + 4 categorias (Guia II)');
+}
+
+async function escenario3_centroSoloGuia1MuestraAviso() {
+  console.log('\n--- Escenario 3: un centro con solo Guía I (<15 personas) no tiene historico que mostrar ---');
+  const window = crearVentana();
+  await esperar(250);
+  const doc = window.document;
+
+  const sel = doc.getElementById('selector-centro');
+  sel.value = 'TOLUCA'; // guias_activas: ['guia_1']
+  sel.dispatchEvent(new window.Event('change'));
+  await esperar(250);
+
+  assert(window.estado.guiaActiva === null, 'Toluca (solo Guía I) resuelve a guiaActiva null');
+  assert(doc.getElementById('pill-guia').textContent === 'Guia I (individual)', 'pill indica que es Guía I individual');
+  assert(window.estado.historico.length === 0, 'no se carga historico para un centro sin guía anónima');
+  assert(doc.querySelectorAll('.tabla-aplicaciones tbody tr').length === 0, 'la tabla de aplicaciones queda vacía');
+  assert(/solo tiene Guia I activa/.test(doc.getElementById('kpi-tendencia').textContent), 'muestra el aviso explicando por qué no hay historico');
 }
 
 async function escenario4_todosLosCentrosCargan() {
@@ -97,12 +97,15 @@ async function escenario4_todosLosCentrosCargan() {
   const doc = window.document;
   const sel = doc.getElementById('selector-centro');
 
+  let conGuiaAnonima = 0, sinGuiaAnonima = 0;
   for (const opt of Array.from(sel.options)) {
     sel.value = opt.value;
     sel.dispatchEvent(new window.Event('change'));
     await esperar(60);
+    if (window.estado.guiaActiva === null) sinGuiaAnonima++; else conGuiaAnonima++;
   }
-  assert(true, 'recorrer los 15 centros no lanzo errores');
+  assert(conGuiaAnonima === 2, 'exactamente 2 centros tienen historico anónimo, obtenido: ' + conGuiaAnonima);
+  assert(sinGuiaAnonima === 13, 'exactamente 13 centros solo tienen Guía I, obtenido: ' + sinGuiaAnonima);
 }
 
 async function escenario5_ordenCronologicoYTendencia() {
@@ -128,25 +131,12 @@ async function escenario5_ordenCronologicoYTendencia() {
   assert(selA.value === '2025-Q3' && selB.value === '2026-Q3', 'selectores de periodo arrancan en el primero y el ultimo');
 }
 
-async function escenario6_sinHistoricoMuestraAviso() {
-  console.log('\n--- Escenario 6: sin historico (simulado) muestra aviso sin lanzar error ---');
-  const window = crearVentana();
-  await esperar(250);
-  window.estado.historico = [];
-  window.estado.errorCarga = null;
-  window.renderTodo();
-  const doc = window.document;
-  assert(/No hay aplicaciones registradas/.test(doc.getElementById('kpi-tendencia').textContent), 'muestra el aviso de historico vacio');
-  assert(doc.querySelectorAll('.tabla-aplicaciones tbody tr').length === 0, 'la tabla de aplicaciones queda vacia sin errores');
-}
-
 async function correrTodo() {
-  await escenario1_centroPorDefectoGuia3();
-  await escenario2_cambioACentroGuia2();
-  await escenario3_centroConGuia1NuncaMuestraGuia1();
+  await escenario1_centroPorDefectoGuia2();
+  await escenario2_cityCenterTambienGuia2();
+  await escenario3_centroSoloGuia1MuestraAviso();
   await escenario4_todosLosCentrosCargan();
   await escenario5_ordenCronologicoYTendencia();
-  await escenario6_sinHistoricoMuestraAviso();
 
   console.log('\n=====================================');
   console.log(pasadas + ' pasadas, ' + fallidas + ' fallidas');

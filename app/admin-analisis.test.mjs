@@ -1,10 +1,11 @@
 // =====================================================================
 // admin-analisis.test.mjs
 // ---------------------------------------------------------------------
-// Pruebas de admin-analisis.html (Módulo 6, multi-guía). Corre contra
-// una copia sin CDNs para jsdom, igual que el resto de los .test.mjs
-// del proyecto (rutas relativas, se auto-genera admin-analisis.test-
-// copy.html para inspección manual si algo falla).
+// Pruebas de admin-analisis.html (Módulo 6, multi-guía). Refleja la
+// regla de negocio real por plantilla: CEDIS (42) y City Center (15)
+// -> Guia II; las otras 13 unidades (<15 personas) -> solo Guia I, sin
+// cuestionario anonimo que analizar aqui (Guia I es individual). Corre
+// contra una copia sin CDNs para jsdom, igual que el resto del proyecto.
 // =====================================================================
 
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -23,8 +24,6 @@ function construirHtml({ forzarDemo = true } = {}) {
       .replace('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>', '<script>window.supabase = { createClient: function(){ return {}; } };</script>')
       .replace("const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';", "const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';");
   } else {
-    // Cliente falso que registra los argumentos de la última llamada a
-    // .rpc(), para verificar que p_guia/p_centro_trabajo se envían bien.
     html = html.replace(
       '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
       `<script>
@@ -46,19 +45,11 @@ fs.writeFileSync('./admin-analisis.test-copy.html', construirHtml());
 function crearVentana(html) {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => {
-    // getContext() de <canvas> no está implementado en jsdom -- ya
-    // manejado por el propio código (renderRadar corta si no hay
-    // window.Chart), así que no es un error real de la prueba.
-    if (!/HTMLCanvasElement's getContext/.test(e.message)) {
-      console.error('[jsdomError]', e.message);
-    }
+    if (!/HTMLCanvasElement's getContext/.test(e.message)) console.error('[jsdomError]', e.message);
   });
   const dom = new JSDOM(html, {
-    runScripts: 'dangerously',
-    resources: undefined,
-    url: 'https://example.com/admin-analisis.html',
-    pretendToBeVisual: true,
-    virtualConsole,
+    runScripts: 'dangerously', resources: undefined,
+    url: 'https://example.com/admin-analisis.html', pretendToBeVisual: true, virtualConsole,
   });
   return dom.window;
 }
@@ -70,50 +61,49 @@ function assert(cond, msg) {
   else { fallidas++; console.error('  \u2718 ' + msg); }
 }
 
-async function escenario1_centroGuia3PorDefecto() {
-  console.log('\n--- Escenario 1: centro por defecto usa Guía III ---');
+async function escenario1_centroPorDefectoGuia2() {
+  console.log('\n--- Escenario 1: centro por defecto (CEDIS, 42 personas) usa Guia II ---');
   const window = crearVentana(construirHtml());
   await esperar(300);
   const doc = window.document;
 
-  assert(window.estado.guiaActiva === 'guia_3', 'guiaActiva inicial es guia_3');
-  assert(doc.getElementById('pill-guia').textContent === 'Guia III', 'pill muestra "Guia III"');
-  assert(doc.querySelectorAll('.ranking-fila').length === 10, 'ranking tiene 10 dominios (Guía III)');
-  assert(doc.querySelectorAll('table.heatmap th').length - 1 === 5, 'heatmap tiene 5 columnas de categoría (Guía III)');
-  assert(doc.querySelectorAll('.plan-bloque').length >= 2, 'el plan de acción se renderizó');
-}
-
-async function escenario2_cambioACentroGuia2() {
-  console.log('\n--- Escenario 2: cambiar a un centro con Guía II (Foro 4) ---');
-  const window = crearVentana(construirHtml());
-  await esperar(300);
-  const doc = window.document;
-
-  const sel = doc.getElementById('selector-centro');
-  sel.value = 'FORO_4';
-  sel.dispatchEvent(new window.Event('change'));
-  await esperar(300);
-
-  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva cambia a guia_2 en Foro 4');
+  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva inicial es guia_2 (CEDIS)');
   assert(doc.getElementById('pill-guia').textContent === 'Guia II', 'pill muestra "Guia II"');
   assert(doc.querySelectorAll('.ranking-fila').length === 8, 'ranking tiene 8 dominios (Guía II)');
   assert(doc.querySelectorAll('table.heatmap th').length - 1 === 4, 'heatmap tiene 4 columnas de categoría (Guía II)');
-  assert(doc.getElementById('texto-sub-gauge').textContent.indexOf('Foro 4') !== -1, 'subtítulo del gauge menciona el centro');
+  assert(doc.querySelectorAll('.plan-bloque').length >= 2, 'el plan de acción se renderizó');
 }
 
-async function escenario3_centroConGuia1NuncaMuestraGuia1() {
-  console.log('\n--- Escenario 3: un centro con Guía III + Guía I nunca usa Guía I aquí ---');
+async function escenario2_cityCenterTambienGuia2() {
+  console.log('\n--- Escenario 2: City Center (15 personas) también usa Guía II ---');
   const window = crearVentana(construirHtml());
   await esperar(300);
   const doc = window.document;
 
   const sel = doc.getElementById('selector-centro');
-  sel.value = 'CHAPULTEPEC'; // guias_activas: ['guia_3', 'guia_1']
+  sel.value = 'CITY_CENTER';
   sel.dispatchEvent(new window.Event('change'));
   await esperar(300);
 
-  assert(window.estado.guiaActiva === 'guia_3', 'Chapultepec (III+I) resuelve a guia_3, nunca guia_1');
-  assert(doc.querySelectorAll('.ranking-fila').length === 10, 'sigue mostrando el catálogo de 10 dominios de Guía III');
+  assert(window.estado.guiaActiva === 'guia_2', 'guiaActiva es guia_2 en City Center');
+  assert(doc.querySelectorAll('.ranking-fila').length === 8, 'ranking tiene 8 dominios (Guía II)');
+}
+
+async function escenario3_centroSoloGuia1MuestraAviso() {
+  console.log('\n--- Escenario 3: un centro con solo Guía I (<15 personas) no tiene nada que analizar aquí ---');
+  const window = crearVentana(construirHtml());
+  await esperar(300);
+  const doc = window.document;
+
+  const sel = doc.getElementById('selector-centro');
+  sel.value = 'TIJUANA'; // guias_activas: ['guia_1']
+  sel.dispatchEvent(new window.Event('change'));
+  await esperar(300);
+
+  assert(window.estado.guiaActiva === null, 'Tijuana (solo Guía I) resuelve a guiaActiva null');
+  assert(doc.getElementById('pill-guia').textContent === 'Guia I (individual)', 'pill indica que es Guía I individual');
+  assert(doc.querySelectorAll('.ranking-fila').length === 0, 'no hay ranking de dominios para mostrar');
+  assert(/no hay cuestionario anonimo|solo tiene Guia I activa/i.test(doc.getElementById('gauge-global').textContent), 'el gauge explica que este centro no tiene cuestionario anónimo');
 }
 
 async function escenario4_todosLosCentrosCargan() {
@@ -122,15 +112,17 @@ async function escenario4_todosLosCentrosCargan() {
   await esperar(300);
   const doc = window.document;
   const sel = doc.getElementById('selector-centro');
-  const total = sel.options.length;
-  assert(total === 15, 'selector de centro tiene 15 opciones (' + total + ')');
+  assert(sel.options.length === 15, 'selector de centro tiene 15 opciones (' + sel.options.length + ')');
 
+  let conGuiaAnonima = 0, sinGuiaAnonima = 0;
   for (const opt of Array.from(sel.options)) {
     sel.value = opt.value;
     sel.dispatchEvent(new window.Event('change'));
     await esperar(60);
+    if (window.estado.guiaActiva === null) sinGuiaAnonima++; else conGuiaAnonima++;
   }
-  assert(true, 'recorrer los 15 centros no lanzó errores');
+  assert(conGuiaAnonima === 2, 'exactamente 2 centros tienen cuestionario anónimo (CEDIS y City Center), obtenido: ' + conGuiaAnonima);
+  assert(sinGuiaAnonima === 13, 'exactamente 13 centros solo tienen Guía I, obtenido: ' + sinGuiaAnonima);
 }
 
 async function escenario5_rpcRecibeGuiaYCentro() {
@@ -139,24 +131,24 @@ async function escenario5_rpcRecibeGuiaYCentro() {
   await esperar(300);
   const doc = window.document;
 
-  assert(window.__ultimaLlamadaRpc !== null, 'se llamó a supabaseClient.rpc() al iniciar');
+  assert(window.__ultimaLlamadaRpc !== null, 'se llamó a supabaseClient.rpc() al iniciar (CEDIS tiene guía anónima)');
   assert(window.__ultimaLlamadaRpc.nombre === 'obtener_resultados_periodo', 'se llamó a la función correcta');
-  assert(window.__ultimaLlamadaRpc.args.p_guia === 'guia_3', 'primera carga manda p_guia=guia_3 (centro por defecto CEDIS)');
+  assert(window.__ultimaLlamadaRpc.args.p_guia === 'guia_2', 'primera carga manda p_guia=guia_2 (centro por defecto CEDIS)');
   assert(window.__ultimaLlamadaRpc.args.p_centro_trabajo === 'CEDIS', 'primera carga manda p_centro_trabajo=CEDIS');
 
   const sel = doc.getElementById('selector-centro');
-  sel.value = 'CALL_CENTER'; // guia_2
+  const llamadasAntes = window.__ultimaLlamadaRpc;
+  sel.value = 'PUEBLA'; // solo guia_1
   sel.dispatchEvent(new window.Event('change'));
   await esperar(200);
 
-  assert(window.__ultimaLlamadaRpc.args.p_guia === 'guia_2', 'tras cambiar a Call Center, manda p_guia=guia_2');
-  assert(window.__ultimaLlamadaRpc.args.p_centro_trabajo === 'CALL_CENTER', 'tras cambiar a Call Center, manda p_centro_trabajo=CALL_CENTER');
+  assert(window.__ultimaLlamadaRpc === llamadasAntes, 'al cambiar a un centro sin guía anónima, NO se hace una llamada RPC nueva');
 }
 
 async function correrTodo() {
-  await escenario1_centroGuia3PorDefecto();
-  await escenario2_cambioACentroGuia2();
-  await escenario3_centroConGuia1NuncaMuestraGuia1();
+  await escenario1_centroPorDefectoGuia2();
+  await escenario2_cityCenterTambienGuia2();
+  await escenario3_centroSoloGuia1MuestraAviso();
   await escenario4_todosLosCentrosCargan();
   await escenario5_rpcRecibeGuiaYCentro();
 

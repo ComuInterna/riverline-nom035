@@ -1,12 +1,15 @@
 // =====================================================================
 // admin-reportes.test.mjs  (Test A)
 // ---------------------------------------------------------------------
-// Pruebas de admin-reportes.html multi-centro contra jsdom, con las
-// librerias de documentos (pdfmake/xlsx/docx/pptxgenjs) simuladas por
-// stubs livianos -- solo interesa que la UI arme los datos correctos
-// y llame a cada libreria con la forma esperada. La generacion de
-// binarios REALES con las librerias de verdad se prueba aparte en
-// admin-reportes.test-libs.mjs (Test B).
+// Pruebas de admin-reportes.html multi-centro. Refleja la regla de
+// negocio real por plantilla: CEDIS (42) y City Center (15) -> Guia II;
+// las otras 13 unidades (<15 personas) solo tienen Guia I activa
+// (individual) y por lo tanto NO aparecen en la lista de centros de
+// este modulo (no hay nada anonimo que reportar ahi). Las librerias de
+// documentos (pdfmake/xlsx/docx/pptxgenjs) se simulan con stubs
+// livianos -- solo interesa que la UI arme los datos correctos y llame
+// a cada libreria con la forma esperada. La generacion de binarios
+// REALES se prueba aparte en admin-reportes.test-libs.mjs (Test B).
 // =====================================================================
 
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -60,10 +63,6 @@ function construirHtml() {
 function crearVentana(html) {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => {
-    // URL.createObjectURL no esta implementado en jsdom (Word usa esta
-    // API real de navegador para el <a download>) -- ya lo maneja
-    // envolverConToast() con un toast de error, asi que no es un fallo
-    // real de la logica bajo prueba.
     if (!/createObjectURL/.test(e.message)) console.error('[jsdomError]', e.message);
   });
   const dom = new JSDOM(html, {
@@ -87,12 +86,16 @@ async function marcarYcargar(window, ids) {
   await esperar(300);
 }
 
-async function escenario1_listaDeCentros() {
-  console.log('\n--- Escenario 1: la lista de centros se genera completa ---');
+async function escenario1_soloCentrosConGuiaAnonima() {
+  console.log('\n--- Escenario 1: solo CEDIS y City Center aparecen en la lista (los otros 13 solo tienen Guia I) ---');
   const window = crearVentana(construirHtml());
   await esperar(150);
   const doc = window.document;
-  assert(doc.querySelectorAll('#lista-centros input[type="checkbox"]').length === 15, 'hay 15 checkboxes de centro');
+  const checkboxes = doc.querySelectorAll('#lista-centros input[type="checkbox"]');
+  assert(checkboxes.length === 2, 'solo hay 2 checkboxes de centro (obtenido: ' + checkboxes.length + ')');
+  const valores = Array.from(checkboxes).map((el) => el.value).sort();
+  assert(JSON.stringify(valores) === JSON.stringify(['CEDIS', 'CITY_CENTER']), 'los 2 centros son CEDIS y City Center');
+  assert(/13.*Guia I/.test(doc.getElementById('nota-centros-solo-guia1').textContent), 'hay una nota explicando por que faltan los otros 13 centros');
   assert(doc.getElementById('btn-pdf-ejecutivo').disabled === true, 'los botones de descarga arrancan deshabilitados');
 }
 
@@ -106,23 +109,23 @@ async function escenario2_sinSeleccion() {
   assert(/Selecciona al menos un centro/.test(window.document.getElementById('resumen-periodo').textContent), 'se muestra el mensaje de error correspondiente');
 }
 
-async function escenario3_dosCentrosMixtos() {
-  console.log('\n--- Escenario 3: cargar un centro Guia III y uno Guia II juntos ---');
+async function escenario3_dosCentrosGuia2() {
+  console.log('\n--- Escenario 3: cargar CEDIS y City Center juntos (ambos Guia II) ---');
   const window = crearVentana(construirHtml());
   await esperar(150);
-  await marcarYcargar(window, ['CEDIS', 'FORO_4']);
+  await marcarYcargar(window, ['CEDIS', 'CITY_CENTER']);
   const doc = window.document;
 
-  assert(JSON.stringify(window.estado.centrosSeleccionados.sort()) === JSON.stringify(['CEDIS', 'FORO_4'].sort()), 'estado.centrosSeleccionados tiene ambos centros');
+  assert(JSON.stringify(window.estado.centrosSeleccionados.sort()) === JSON.stringify(['CEDIS', 'CITY_CENTER'].sort()), 'estado.centrosSeleccionados tiene ambos centros');
   assert(doc.querySelectorAll('.tabla-resumen-centros tbody tr').length === 2, 'la tabla de resumen tiene 2 filas');
   assert(doc.getElementById('btn-pdf-ejecutivo').disabled === false, 'los botones de descarga se habilitan tras cargar');
 }
 
 async function escenario4_pdfEjecutivoYTecnico() {
-  console.log('\n--- Escenario 4: generar PDF ejecutivo y tecnico con 2 centros ---');
+  console.log('\n--- Escenario 4: generar PDF ejecutivo y tecnico con los 2 centros ---');
   const window = crearVentana(construirHtml());
   await esperar(150);
-  await marcarYcargar(window, ['CEDIS', 'FORO_4']);
+  await marcarYcargar(window, ['CEDIS', 'CITY_CENTER']);
   const doc = window.document;
 
   doc.getElementById('btn-pdf-ejecutivo').dispatchEvent(new window.Event('click'));
@@ -140,14 +143,14 @@ async function escenario5_excelHojasPorCentro() {
   console.log('\n--- Escenario 5: Excel genera hojas por centro con nombre correcto ---');
   const window = crearVentana(construirHtml());
   await esperar(150);
-  await marcarYcargar(window, ['CEDIS', 'FORO_4']);
+  await marcarYcargar(window, ['CEDIS', 'CITY_CENTER']);
   window.document.getElementById('btn-excel').dispatchEvent(new window.Event('click'));
   await esperar(150);
 
   const nombresHojas = window.__ultimoLibro.sheets.map((s) => s.nombre);
   assert(nombresHojas[0] === 'Resumen', 'primera hoja es "Resumen"');
   assert(nombresHojas.includes('Cat CEDIS') && nombresHojas.includes('Dom CEDIS') && nombresHojas.includes('Plan CEDIS'), 'hojas de CEDIS presentes');
-  assert(nombresHojas.includes('Cat Foro 4') && nombresHojas.includes('Dom Foro 4') && nombresHojas.includes('Plan Foro 4'), 'hojas de Foro 4 presentes');
+  assert(nombresHojas.includes('Cat City Center') && nombresHojas.includes('Dom City Center') && nombresHojas.includes('Plan City Center'), 'hojas de City Center presentes');
   assert(window.__ultimoLibro.sheets[0].hoja.rows.length === 2, 'hoja Resumen tiene una fila por centro (2)');
 }
 
@@ -155,7 +158,7 @@ async function escenario6_powerpointSlidesPorCentro() {
   console.log('\n--- Escenario 6: PowerPoint genera bloque de slides por centro ---');
   const window = crearVentana(construirHtml());
   await esperar(150);
-  await marcarYcargar(window, ['CEDIS', 'FORO_4']);
+  await marcarYcargar(window, ['CEDIS', 'CITY_CENTER']);
   window.document.getElementById('btn-ppt').dispatchEvent(new window.Event('click'));
   await esperar(150);
 
@@ -175,9 +178,9 @@ async function escenario7_unSoloCentroSufijoSinNumero() {
 }
 
 async function correrTodo() {
-  await escenario1_listaDeCentros();
+  await escenario1_soloCentrosConGuiaAnonima();
   await escenario2_sinSeleccion();
-  await escenario3_dosCentrosMixtos();
+  await escenario3_dosCentrosGuia2();
   await escenario4_pdfEjecutivoYTecnico();
   await escenario5_excelHojasPorCentro();
   await escenario6_powerpointSlidesPorCentro();

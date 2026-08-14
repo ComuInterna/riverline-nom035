@@ -182,21 +182,21 @@ if (!MODO_DEMO) {
 // esta lista sincronizada con la real.
 // ---------------------------------------------------------------------
 const CENTROS_TRABAJO = [
-  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
-  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
-  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
-  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
-  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
-  { id: 'QUERETARO', nombre: 'Querétaro', guias_activas: ['guia_3'] },
-  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosí', guias_activas: ['guia_3'] },
-  { id: 'LEON', nombre: 'León', guias_activas: ['guia_3'] },
-  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
-  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
-  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
-  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
-  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_2'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_2'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_1'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_1'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_1'] },
+  { id: 'QUERETARO', nombre: 'Querétaro', guias_activas: ['guia_1'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosí', guias_activas: ['guia_1'] },
+  { id: 'LEON', nombre: 'León', guias_activas: ['guia_1'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_1'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_1'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_1'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_1'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_1'] },
 ];
 const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
 
@@ -243,8 +243,15 @@ function generarPadronDemo() {
     // los KPIs y la tabla muestren variedad realista.
     if (guiaPrincipal === 'guia_3') fila.status = avance;
     if (guiaPrincipal === 'guia_2') fila.status_guia2 = avance;
+    if (guiaPrincipal === 'guia_1') fila.status_guia1 = avance;
     if (avance !== 'no_contesto') fila.fecha_acceso = new Date(2026, 6, (i % 28) + 1).toISOString();
     if (avance === 'contesto') fila.fecha_encuesta = new Date(2026, 6, (i % 28) + 1).toISOString();
+    // Simular que algunos colaboradores de un centro con Guia II/III ya
+    // tienen Guia I asignada manualmente (ej. reportaron un evento
+    // traumatico al contestar su guia principal).
+    if (guiaPrincipal !== 'guia_1' && statusGuia1 === null && i % 6 === 0) {
+      fila.status_guia1 = 'no_contesto';
+    }
 
     filas.push(fila);
   }
@@ -271,6 +278,14 @@ const estado = {
 function statusPrincipal(c) {
   if (c.status !== null && c.status !== undefined) return c.status;
   if (c.status_guia2 !== null && c.status_guia2 !== undefined) return c.status_guia2;
+  // Si el centro no tiene Guia II/III activa, Guia I ES la guia
+  // principal (la mayoria de los centros, <15 personas, solo tienen
+  // Guia I). Si el centro SI tiene Guia II/III y ademas Guia I fue
+  // asignada manualmente, Guia I se sigue mostrando aparte (badge G1)
+  // pero no sustituye a la principal.
+  const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+  const tieneGuiaAnonima = centro && (centro.guias_activas.indexOf('guia_2') !== -1 || centro.guias_activas.indexOf('guia_3') !== -1);
+  if (!tieneGuiaAnonima && c.status_guia1 !== null && c.status_guia1 !== undefined) return c.status_guia1;
   return null;
 }
 
@@ -469,16 +484,44 @@ function renderFiltros() {
 
 function badgesGuiaHTML(c) {
   const badges = [];
-  const principal = statusPrincipal(c);
-  if (principal !== null) {
-    const centro = CENTRO_POR_ID.get(c.centro_trabajo);
-    const etiquetaGuia = (centro && centro.guias_activas.indexOf('guia_2') !== -1) ? 'G2' : 'G3';
-    badges.push('<span class="badge badge-' + principal + '" title="' + etiquetaGuia + '">' + etiquetaGuia + ': ' + ETIQUETA_STATUS[principal] + '</span>');
-  }
-  if (c.status_guia1 !== null && c.status_guia1 !== undefined) {
+  const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+  const tieneGuiaAnonima = centro && (centro.guias_activas.indexOf('guia_2') !== -1 || centro.guias_activas.indexOf('guia_3') !== -1);
+
+  if (tieneGuiaAnonima) {
+    // Guia II/III es la principal aqui; Guia I (si fue asignada
+    // manualmente) se muestra como badge adicional, aparte.
+    const principal = statusPrincipal(c);
+    if (principal !== null) {
+      const etiquetaGuia = centro.guias_activas.indexOf('guia_2') !== -1 ? 'G2' : 'G3';
+      badges.push('<span class="badge badge-' + principal + '" title="' + etiquetaGuia + '">' + etiquetaGuia + ': ' + ETIQUETA_STATUS[principal] + '</span>');
+    }
+    if (c.status_guia1 !== null && c.status_guia1 !== undefined) {
+      badges.push('<span class="badge badge-' + c.status_guia1 + '" title="G1">G1: ' + ETIQUETA_STATUS[c.status_guia1] + '</span>');
+    }
+  } else if (c.status_guia1 !== null && c.status_guia1 !== undefined) {
+    // Centro sin Guia II/III activa: Guia I es la unica guia, se
+    // muestra un solo badge (statusPrincipal() ya regresa este mismo
+    // valor para estos colaboradores).
     badges.push('<span class="badge badge-' + c.status_guia1 + '" title="G1">G1: ' + ETIQUETA_STATUS[c.status_guia1] + '</span>');
   }
   return badges.join(' ');
+}
+
+function accionGuia1(c) {
+  // Solo tiene sentido en centros con Guia II/III activa -- en los
+  // centros donde Guia I ya es automatica (solo Guia I), no se ofrece
+  // este control manual.
+  const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+  const centroConGuiaAnonima = centro && (centro.guias_activas.indexOf('guia_2') !== -1 || centro.guias_activas.indexOf('guia_3') !== -1);
+  if (!centroConGuiaAnonima) return null;
+
+  if (c.status_guia1 === null || c.status_guia1 === undefined) {
+    return { texto: 'Asignar G1', accion: 'asignar-guia1' };
+  }
+  if (c.status_guia1 === 'no_contesto') {
+    return { texto: 'Quitar G1', accion: 'quitar-guia1' };
+  }
+  return null; // ya en proceso o contestada -- no se puede tocar mas
 }
 
 function filaHTML(c) {
@@ -487,6 +530,7 @@ function filaHTML(c) {
   const pendientePrincipal = principal !== null && principal !== 'contesto';
   const puedeRecordar = pendientePrincipal || pendienteGuia1;
   const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+  const g1 = accionGuia1(c);
   return '<tr data-id="' + c.id + '">' +
     '<td>' + c.nombre + '</td>' +
     '<td>' + (centro ? centro.nombre : (c.centro_trabajo || '\u2014')) + '</td>' +
@@ -494,7 +538,10 @@ function filaHTML(c) {
     '<td>' + c.departamento + '</td>' +
     '<td>' + badgesGuiaHTML(c) + '</td>' +
     '<td>' + formatearFecha(c.fecha_encuesta || c.fecha_acceso) + '</td>' +
-    '<td><button class="btn-fila" data-accion="recordatorio" data-id="' + c.id + '" ' + (puedeRecordar ? '' : 'disabled') + '>' + (c.recordatorios_enviados > 0 ? ('Reenviar (' + c.recordatorios_enviados + ')') : 'Recordar') + '</button></td>' +
+    '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
+    '<button class="btn-fila" data-accion="recordatorio" data-id="' + c.id + '" ' + (puedeRecordar ? '' : 'disabled') + '>' + (c.recordatorios_enviados > 0 ? ('Reenviar (' + c.recordatorios_enviados + ')') : 'Recordar') + '</button>' +
+    (g1 ? '<button class="btn-fila" data-accion="' + g1.accion + '" data-id="' + c.id + '">' + g1.texto + '</button>' : '') +
+    '</td>' +
     '</tr>';
 }
 
@@ -536,6 +583,15 @@ function renderTabla() {
   const btns = contenedor.querySelectorAll('[data-accion="recordatorio"]');
   btns.forEach(function(btn) {
     btn.addEventListener('click', function(){ enviarRecordatorio(btn.dataset.id); });
+  });
+
+  const btnsAsignar = contenedor.querySelectorAll('[data-accion="asignar-guia1"]');
+  btnsAsignar.forEach(function(btn) {
+    btn.addEventListener('click', function(){ cambiarAsignacionGuia1(btn.dataset.id, true); });
+  });
+  const btnsQuitar = contenedor.querySelectorAll('[data-accion="quitar-guia1"]');
+  btnsQuitar.forEach(function(btn) {
+    btn.addEventListener('click', function(){ cambiarAsignacionGuia1(btn.dataset.id, false); });
   });
 }
 
@@ -595,6 +651,35 @@ async function enviarRecordatorioMasivo() {
   boton.disabled = false;
   boton.textContent = 'Enviar recordatorio a pendientes';
   mostrarToast('Recordatorios enviados a ' + pendientes.length + ' colaboradores pendientes.');
+}
+
+// ---------------------------------------------------------------------
+// Acciones: asignacion manual de Guia I (solo en centros con Guia II/III)
+// ---------------------------------------------------------------------
+async function cambiarAsignacionGuia1(colaboradorId, asignar) {
+  const colaborador = estado.colaboradores.find(function(c){ return c.id === colaboradorId; });
+  if (!colaborador) return;
+
+  if (MODO_DEMO) {
+    colaborador.status_guia1 = asignar ? 'no_contesto' : null;
+    renderTabla();
+    mostrarToast(asignar
+      ? 'Guia I asignada a ' + colaborador.nombre + ' (demo).'
+      : 'Guia I retirada de ' + colaborador.nombre + ' (demo).');
+    return;
+  }
+  try {
+    const resp = await supabaseClient.rpc('admin_asignar_guia1', { p_colaborador_id: colaboradorId, p_asignar: asignar });
+    if (resp.error) throw resp.error;
+    colaborador.status_guia1 = asignar ? 'no_contesto' : null;
+    renderTabla();
+    mostrarToast(asignar
+      ? 'Guia I asignada a ' + colaborador.nombre + '.'
+      : 'Guia I retirada de ' + colaborador.nombre + '.');
+  } catch (e) {
+    console.error(e);
+    mostrarToast(asignar ? 'No se pudo asignar Guia I.' : 'No se pudo quitar Guia I.');
+  }
 }
 
 // ---------------------------------------------------------------------

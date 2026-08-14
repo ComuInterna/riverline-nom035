@@ -46,7 +46,6 @@ async function correr() {
   const kpiValores = [...doc.querySelectorAll('.kpi-valor')].map((el) => el.textContent);
   assert(kpiValores[0] === '47', `Total colaboradores = 47 (obtuvo ${kpiValores[0]})`);
 
-  // Verificamos independientemente contra la función pura expuesta en window
   const kpiCalculado = window.calcularKPIs(window.estado.colaboradores, window.estado.tiempoPromedioSegundos);
   assert(kpiCalculado.total === 47, 'calcularKPIs: total = 47');
   assert(kpiCalculado.contestaron + kpiCalculado.pendientes === 47, 'calcularKPIs: contestaron + pendientes = total');
@@ -68,7 +67,6 @@ async function correr() {
   const esperadas = window.estado.colaboradores.filter((c) => c.departamento === deptElegido).length;
   assert(filasVisibles.length === esperadas, `Filtro por departamento "${deptElegido}": ${filasVisibles.length} filas (esperado ${esperadas})`);
 
-  // Reset filtro
   selDept.value = '';
   selDept.dispatchEvent(new window.Event('change'));
   await esperar(20);
@@ -79,36 +77,65 @@ async function correr() {
   const selCentro = doc.getElementById('filtro-centro');
   const opcionesCentro = [...selCentro.options].map((o) => o.value).filter(Boolean);
   assert(opcionesCentro.length === 15, `15 centros de trabajo en el filtro (obtuvo ${opcionesCentro.length})`);
-  assert(opcionesCentro.includes('CHAPULTEPEC') && opcionesCentro.includes('FORO_4'), 'El filtro incluye los centros reales (Chapultepec, Foro 4, etc.)');
+  assert(opcionesCentro.includes('CEDIS') && opcionesCentro.includes('TOLUCA'), 'El filtro incluye los centros reales (CEDIS, Toluca, etc.)');
 
-  selCentro.value = 'CHAPULTEPEC';
+  selCentro.value = 'CEDIS';
   selCentro.dispatchEvent(new window.Event('change'));
   await esperar(20);
-  const filasChapultepec = doc.querySelectorAll('table.tabla-seguimiento tbody tr');
-  const esperadasChapultepec = window.estado.colaboradores.filter((c) => c.centro_trabajo === 'CHAPULTEPEC').length;
-  assert(filasChapultepec.length === esperadasChapultepec, `Filtro "Chapultepec": ${filasChapultepec.length} filas (esperado ${esperadasChapultepec})`);
-  assert([...filasChapultepec].every((tr) => tr.textContent.includes('Chapultepec')), 'Todas las filas visibles muestran "Chapultepec" como centro');
+  const filasCedis = doc.querySelectorAll('table.tabla-seguimiento tbody tr');
+  const esperadasCedis = window.estado.colaboradores.filter((c) => c.centro_trabajo === 'CEDIS').length;
+  assert(filasCedis.length === esperadasCedis, `Filtro "CEDIS": ${filasCedis.length} filas (esperado ${esperadasCedis})`);
+  assert([...filasCedis].every((tr) => tr.textContent.includes('CEDIS')), 'Todas las filas visibles muestran "CEDIS" como centro');
   selCentro.value = '';
   selCentro.dispatchEvent(new window.Event('change'));
   await esperar(20);
 
   // ---------------------------------------------------------------
-  // 2c) Badges de guía(s) reflejan el centro correcto: Chapultepec usa
-  //     Guía III + Guía I combinadas; Foro 4 usa solo Guía II.
+  // 2c) Badges de guía(s) y regla de negocio real por plantilla:
+  //     CEDIS (42 personas) y City Center (15) -> Guía II; el resto
+  //     de los centros (<15 personas) -> solo Guía I.
   // ---------------------------------------------------------------
-  const colaboradorChapultepec = window.estado.colaboradores.find((c) => c.centro_trabajo === 'CHAPULTEPEC');
-  assert(colaboradorChapultepec.status !== null && colaboradorChapultepec.status_guia1 !== null,
-    'Colaborador de Chapultepec tiene status de Guía III Y de Guía I (centro combinado)');
-  assert(colaboradorChapultepec.status_guia2 === null, 'Colaborador de Chapultepec NO tiene Guía II (no aplica ahí)');
+  const colaboradorCedis = window.estado.colaboradores.find((c) => c.centro_trabajo === 'CEDIS');
+  assert(colaboradorCedis.status === null && colaboradorCedis.status_guia2 !== null,
+    'Colaborador de CEDIS SOLO tiene status de Guía II (no Guía III ni Guía I por default)');
+  assert(colaboradorCedis.status_guia1 === null, 'Colaborador de CEDIS no tiene Guía I asignada por default (es manual)');
 
-  const colaboradorForo4 = window.estado.colaboradores.find((c) => c.centro_trabajo === 'FORO_4');
-  assert(colaboradorForo4.status === null && colaboradorForo4.status_guia1 === null && colaboradorForo4.status_guia2 !== null,
-    'Colaborador de Foro 4 SOLO tiene status de Guía II (Guía III y I no le aplican)');
+  const colaboradorToluca = window.estado.colaboradores.find((c) => c.centro_trabajo === 'TOLUCA');
+  assert(colaboradorToluca.status === null && colaboradorToluca.status_guia2 === null && colaboradorToluca.status_guia1 !== null,
+    'Colaborador de Toluca (<15 personas) SOLO tiene status de Guía I (automática, sin Guía II/III)');
 
-  const filaChapultepecHTML = doc.querySelector(`tr[data-id="${colaboradorChapultepec.id}"]`).innerHTML;
-  assert(filaChapultepecHTML.includes('G3:') && filaChapultepecHTML.includes('G1:'), 'La fila de un colaborador de Chapultepec muestra badges de G3 y G1');
-  const filaForo4HTML = doc.querySelector(`tr[data-id="${colaboradorForo4.id}"]`).innerHTML;
-  assert(filaForo4HTML.includes('G2:') && !filaForo4HTML.includes('G1:'), 'La fila de un colaborador de Foro 4 muestra badge G2 y NO badge G1');
+  const filaCedisHTML = doc.querySelector(`tr[data-id="${colaboradorCedis.id}"]`).innerHTML;
+  assert(filaCedisHTML.includes('G2:') && !filaCedisHTML.includes('G1:'), 'La fila de un colaborador de CEDIS muestra badge G2 y NO badge G1 (por default)');
+  const filaTolucaHTML = doc.querySelector(`tr[data-id="${colaboradorToluca.id}"]`).innerHTML;
+  assert(filaTolucaHTML.includes('G1:') && !filaTolucaHTML.includes('G2:') && !filaTolucaHTML.includes('G3:'), 'La fila de un colaborador de Toluca muestra SOLO badge G1');
+
+  // ---------------------------------------------------------------
+  // 2d) Asignación manual de Guía I: solo disponible en centros con
+  //     Guía II/III activa (CEDIS/City Center), revertible mientras
+  //     no se haya iniciado.
+  // ---------------------------------------------------------------
+  const filaCedisEl = doc.querySelector(`tr[data-id="${colaboradorCedis.id}"]`);
+  const btnAsignarCedis = filaCedisEl.querySelector('[data-accion="asignar-guia1"]');
+  assert(btnAsignarCedis !== null, 'Colaborador de CEDIS (Guía II) muestra botón "Asignar G1"');
+
+  const filaTolucaEl = doc.querySelector(`tr[data-id="${colaboradorToluca.id}"]`);
+  assert(filaTolucaEl.querySelector('[data-accion="asignar-guia1"]') === null && filaTolucaEl.querySelector('[data-accion="quitar-guia1"]') === null,
+    'Colaborador de Toluca (solo Guía I automática) NO muestra botón de asignación manual');
+
+  btnAsignarCedis.click();
+  await esperar(20);
+  assert(colaboradorCedis.status_guia1 === 'no_contesto', 'Tras "Asignar G1", el colaborador de CEDIS queda con status_guia1=no_contesto');
+  const filaCedisEl2 = doc.querySelector(`tr[data-id="${colaboradorCedis.id}"]`);
+  assert(filaCedisEl2.innerHTML.includes('G1:'), 'La fila ahora muestra el badge G1 tras la asignación manual');
+  const btnQuitarCedis = filaCedisEl2.querySelector('[data-accion="quitar-guia1"]');
+  assert(btnQuitarCedis !== null, 'Ahora aparece el botón "Quitar G1" (todavía no contestada)');
+
+  btnQuitarCedis.click();
+  await esperar(20);
+  assert(colaboradorCedis.status_guia1 === null, 'Tras "Quitar G1", el colaborador de CEDIS vuelve a status_guia1=null');
+  const filaCedisEl3 = doc.querySelector(`tr[data-id="${colaboradorCedis.id}"]`);
+  assert(!filaCedisEl3.innerHTML.includes('G1:'), 'El badge G1 desaparece de nuevo');
+  assert(filaCedisEl3.querySelector('[data-accion="asignar-guia1"]') !== null, 'El botón vuelve a ser "Asignar G1"');
 
   // ---------------------------------------------------------------
   // 3) Búsqueda por nombre
@@ -167,17 +194,18 @@ async function correr() {
   assert(lineas.length === 4, `CSV tiene encabezado + 3 filas (obtuvo ${lineas.length} líneas)`);
   assert(lineas[0].includes('Nombre') && lineas[0].includes('Departamento'), 'CSV incluye encabezados esperados');
 
-  // Caso especial: nombre con coma debe ir entre comillas
   const csvEspecial = window.generarCSV([{ Nombre: 'García, Ana', Depto: 'X' }]);
   assert(csvEspecial.includes('"García, Ana"'), 'CSV escapa correctamente valores con coma');
 
   // ---------------------------------------------------------------
-  // 7) Importación: parseo real, ahora con "Centro de Trabajo" obligatorio
+  // 7) Importación: parseo real, con "Centro de Trabajo" obligatorio y
+  //    la regla de negocio real por plantilla (CEDIS/City Center =
+  //    Guía II; el resto = solo Guía I).
   // ---------------------------------------------------------------
   const filasCrudas = [
-    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Toluca', email: 'p1@riverline.mx' },
-    { Nombre: 'Prueba Import Dos', Puesto: 'Operador', Departamento: 'Producción', 'Centro de Trabajo': 'chapultepec', Email: 'p2@riverline.mx' }, // encabezados con mayúscula/acento, centro en minúsculas
-    { nombre: 'Prueba Import Tres', puesto: 'Analista', departamento: 'Ventas', 'centro de trabajo': 'Foro 4', email: 'p3@riverline.mx' }, // centro con guia_2
+    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'CEDIS', email: 'p1@riverline.mx' },
+    { Nombre: 'Prueba Import Dos', Puesto: 'Operador', Departamento: 'Producción', 'Centro de Trabajo': 'toluca', Email: 'p2@riverline.mx' }, // encabezados con mayúscula/acento, centro en minúsculas
+    { nombre: 'Prueba Import Tres', puesto: 'Analista', departamento: 'Ventas', 'centro de trabajo': 'City Center', email: 'p3@riverline.mx' }, // centro con guia_2
     { nombre: '', puesto: 'Sin depto', departamento: '', 'centro de trabajo': 'Toluca', email: 'malo@riverline.mx' }, // fila inválida (sin nombre ni depto)
     { nombre: 'Prueba Sin Centro', puesto: 'Analista', departamento: 'Calidad', email: 'sincentro@riverline.mx' }, // sin centro de trabajo
     { nombre: 'Prueba Centro Falso', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Ciudad Inventada', email: 'falso@riverline.mx' }, // centro no reconocido
@@ -188,23 +216,27 @@ async function correr() {
   assert(resultadoImport.validas[0].codigo === '2000', 'Código autogenerado secuencial para fila sin código');
   assert(resultadoImport.validas[1].nombre === 'Prueba Import Dos', 'Detecta encabezado "Nombre" con mayúscula inicial');
   assert(resultadoImport.validas[1].departamento === 'Producción', 'Detecta encabezado "Departamento" con acento/mayúscula');
-  assert(resultadoImport.validas[1].centro_trabajo === 'CHAPULTEPEC', 'Centro "chapultepec" (minúsculas) se resuelve al id CHAPULTEPEC');
+  assert(resultadoImport.validas[1].centro_trabajo === 'TOLUCA', 'Centro "toluca" (minúsculas) se resuelve al id TOLUCA');
   assert(resultadoImport.invalidas.some((f) => f.motivo.includes('Centro de Trabajo')), 'Fila sin centro de trabajo se marca inválida con motivo claro');
   assert(resultadoImport.invalidas.some((f) => f.motivo.includes('Ciudad Inventada')), 'Centro no reconocido se marca inválido, mencionando el valor recibido');
 
   // Verificar que status/status_guia1/status_guia2 se inicializan según
-  // las guías activas del centro real (Toluca = III+I, Chapultepec = III+I, Foro 4 = solo II).
-  const filaToluca = resultadoImport.validas.find((f) => f.centro_trabajo === 'TOLUCA');
-  assert(filaToluca.status === 'no_contesto' && filaToluca.status_guia1 === 'no_contesto' && filaToluca.status_guia2 === null,
-    'Toluca (Guía III + I): status=no_contesto, status_guia1=no_contesto, status_guia2=null');
-  const filaForo4 = resultadoImport.validas.find((f) => f.centro_trabajo === 'FORO_4');
-  assert(filaForo4.status === null && filaForo4.status_guia1 === null && filaForo4.status_guia2 === 'no_contesto',
-    'Foro 4 (solo Guía II): status=null, status_guia1=null, status_guia2=no_contesto');
+  // las guías activas reales del centro (CEDIS/City Center = Guía II,
+  // Toluca = solo Guía I).
+  const filaCedisImport = resultadoImport.validas.find((f) => f.centro_trabajo === 'CEDIS');
+  assert(filaCedisImport.status === null && filaCedisImport.status_guia1 === null && filaCedisImport.status_guia2 === 'no_contesto',
+    'CEDIS (Guía II): status=null, status_guia1=null, status_guia2=no_contesto');
+  const filaTolucaImport = resultadoImport.validas.find((f) => f.centro_trabajo === 'TOLUCA');
+  assert(filaTolucaImport.status === null && filaTolucaImport.status_guia1 === 'no_contesto' && filaTolucaImport.status_guia2 === null,
+    'Toluca (solo Guía I): status=null, status_guia1=no_contesto, status_guia2=null');
+  const filaCityCenterImport = resultadoImport.validas.find((f) => f.centro_trabajo === 'CITY_CENTER');
+  assert(filaCityCenterImport.status === null && filaCityCenterImport.status_guia1 === null && filaCityCenterImport.status_guia2 === 'no_contesto',
+    'City Center (Guía II): status=null, status_guia1=null, status_guia2=no_contesto');
 
   // Ahora probamos el flujo completo de UI de importación con un archivo .xlsx real.
   const filasParaArchivo = [
-    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Toluca', email: 'p1@riverline.mx' },
-    { nombre: 'Prueba Import Dos', puesto: 'Operador', departamento: 'Producción', 'centro de trabajo': 'Chapultepec', email: 'p2@riverline.mx' },
+    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'CEDIS', email: 'p1@riverline.mx' },
+    { nombre: 'Prueba Import Dos', puesto: 'Operador', departamento: 'Producción', 'centro de trabajo': 'Toluca', email: 'p2@riverline.mx' },
     { nombre: '', puesto: 'Sin depto', departamento: '', 'centro de trabajo': 'Toluca', email: 'malo@riverline.mx' }, // fila inválida
   ];
   const libro = XLSX.utils.book_new();
@@ -216,11 +248,8 @@ async function correr() {
   await esperar(20);
   assert(!doc.getElementById('modal-importar').classList.contains('oculto'), 'Modal de importación se abre');
 
-  // Simulamos la selección de archivo invocando directamente la función de
-  // manejo (jsdom no permite construir un FileList real de forma sencilla).
   const archivoFalso = { name: 'prueba.xlsx' };
   const totalColaboradoresAntes = window.estado.colaboradores.length;
-  // Sustituimos FileReader por una versión que entrega el buffer real generado arriba.
   const OriginalFileReader = window.FileReader;
   window.FileReader = function () {
     return {

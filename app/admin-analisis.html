@@ -282,31 +282,40 @@ const CATALOGO_G2 = {
    para decidir que catalogo usar aqui).
    ----------------------------------------------------------------- */
 const CENTROS_TRABAJO = [
-  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
-  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
-  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
-  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
-  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
-  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_3'] },
-  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_3'] },
-  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_3'] },
-  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
-  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
-  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
-  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
-  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
-  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_2'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_2'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_1'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_1'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_1'] },
+  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_1'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_1'] },
+  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_1'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_1'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_1'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_1'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_1'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_1'] },
 ];
 const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
 
+// Regresa 'guia_2'/'guia_3' si el centro tiene un cuestionario anonimo
+// activo, o null si SOLO tiene Guia I (la mayoria de los centros: <15
+// personas no requieren Guia II/III completa, solo Guia I). Este
+// dashboard no tiene nada que mostrar para un centro que regresa null
+// -- Guia I es individual/identificada y nunca entra a un reporte
+// agregado como este.
 function guiaPrincipalDeCentro(centroId) {
   const centro = CENTRO_POR_ID.get(centroId);
-  if (!centro) return 'guia_3';
-  return centro.guias_activas.indexOf('guia_2') !== -1 ? 'guia_2' : 'guia_3';
+  if (!centro) return null;
+  if (centro.guias_activas.indexOf('guia_2') !== -1) return 'guia_2';
+  if (centro.guias_activas.indexOf('guia_3') !== -1) return 'guia_3';
+  return null;
 }
 
 function catalogoActivo() {
+  if (estado.guiaActiva === null) return null;
   return estado.guiaActiva === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3;
 }
 
@@ -579,17 +588,36 @@ function renderPlan(plan) {
 function actualizarPillGuia() {
   const cat = catalogoActivo();
   const pill = document.getElementById('pill-guia');
-  pill.textContent = cat.etiqueta;
   const centro = CENTRO_POR_ID.get(estado.centroActivo);
+  if (!cat) {
+    pill.textContent = 'Guia I (individual)';
+    document.getElementById('texto-sub-gauge').textContent =
+      (centro ? centro.nombre : 'Este centro') + ' solo tiene Guia I activa -- no hay cuestionario anonimo que analizar aqui.';
+    return;
+  }
+  pill.textContent = cat.etiqueta;
   document.getElementById('texto-sub-gauge').textContent =
     'Nivel de riesgo psicosocial general de ' + (centro ? centro.nombre : 'este centro de trabajo') +
     ' (' + cat.etiqueta + ')';
 }
 
+function limpiarPanelesSinCuestionarioAnonimo() {
+  document.getElementById('gauge-global').innerHTML =
+    '<div style="color:var(--gris-500);font-size:13px;padding:20px 0;">Este centro solo tiene Guia I activa (identifica al colaborador y se maneja de forma individual) -- no aplica un cuestionario anonimo II/III para analizar.</div>';
+  ['contenedor-radar', 'lista-ranking', 'contenedor-heatmap', 'contenedor-plan'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+}
+
 function renderTodo() {
-  const cat = catalogoActivo();
-  const r = estado.resultados;
   actualizarPillGuia();
+  const cat = catalogoActivo();
+  if (!cat || !estado.resultados) {
+    limpiarPanelesSinCuestionarioAnonimo();
+    return;
+  }
+  const r = estado.resultados;
   const rankingDominios = prepararRankingDominios(r.porDominio, cat.rangosDominio, cat.dominios);
   const categoriasEnriquecidas = prepararDatosRadar(r.porCategoria, cat.rangosCategoria, cat.categorias);
   const heatmap = construirHeatmap(r.porDepartamento, MINIMO_N_DEPARTAMENTO);
@@ -613,6 +641,10 @@ function renderTodo() {
 }
 
 async function cargarResultados(periodo) {
+  if (estado.guiaActiva === null) {
+    estado.resultados = null;
+    return;
+  }
   if (MODO_DEMO) {
     document.getElementById('pill-demo').style.display = 'inline-block';
     estado.resultados = generarResultadosDemo();
@@ -640,8 +672,10 @@ function inicializarSelectorPeriodo() {
 function inicializarSelectorCentro() {
   const sel = document.getElementById('selector-centro');
   // Guia I nunca entra a este dashboard (identifica al colaborador y
-  // se maneja de forma clinica) -- todos los centros siempre tienen
-  // una guia principal II o III, asi que todos aparecen aqui.
+  // se maneja de forma clinica/individual). La mayoria de los centros
+  // (<15 personas) solo tienen Guia I activa -- guiaPrincipalDeCentro()
+  // regresa null para esos, y renderTodo()/cargarResultados() lo
+  // manejan mostrando un aviso en vez de datos.
   CENTROS_TRABAJO.forEach(function(c) {
     sel.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.nombre + '</option>');
   });
