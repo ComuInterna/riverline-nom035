@@ -30,6 +30,23 @@
   .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
   .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
   .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:#c99a2e;padding:5px 10px;border-radius:100px;}
+  .pill-guia-mini{font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;background:var(--gris-100);color:var(--gris-700);margin-left:6px;}
+
+  .panel-centros{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;}
+  .centros-acciones{display:flex;gap:8px;margin-bottom:12px;}
+  .btn-mini{appearance:none;border:1.5px solid var(--gris-200);background:#fff;cursor:pointer;font-family:var(--font);font-weight:700;font-size:12px;border-radius:100px;padding:6px 12px;color:var(--gris-700);}
+  .btn-mini:hover{border-color:var(--gris-500);}
+  .lista-centros{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;margin-bottom:14px;}
+  .centro-check{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 4px;cursor:pointer;}
+  .centro-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--rojo);}
+  .btn-secundario{appearance:none;border:1.5px solid var(--gris-200);background:#fff;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:11px 16px;color:var(--negro);}
+  .btn-secundario:hover{border-color:var(--gris-500);}
+  .btn-secundario:disabled{opacity:.5;cursor:not-allowed;}
+
+  .tabla-resumen-centros{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .tabla-resumen-centros th{text-align:left;color:var(--gris-500);font-weight:700;padding:7px 8px;border-bottom:1.5px solid var(--gris-100);}
+  .tabla-resumen-centros td{padding:8px;border-bottom:1px solid var(--gris-100);}
+  .badge-nivel{font-size:11px;font-weight:700;padding:3px 8px;border-radius:100px;}
 
   .grid-reportes{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px;}
   @media (max-width:700px){.grid-reportes{grid-template-columns:1fr;}}
@@ -71,9 +88,19 @@
     <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
   </header>
 
+  <section class="panel-centros">
+    <div class="panel-titulo">Centros de trabajo a incluir en el reporte</div>
+    <div class="centros-acciones">
+      <button class="btn-mini" id="btn-seleccionar-todos" type="button">Seleccionar todos</button>
+      <button class="btn-mini" id="btn-limpiar-seleccion" type="button">Limpiar</button>
+    </div>
+    <div class="lista-centros" id="lista-centros"></div>
+    <button class="btn-secundario" id="btn-cargar-centros">Cargar centros seleccionados</button>
+  </section>
+
   <section class="panel">
     <div class="panel-titulo">Resumen del periodo</div>
-    <div id="resumen-periodo"></div>
+    <div id="resumen-periodo"><p style="color:var(--gris-500);font-size:13px;">Selecciona uno o varios centros y presiona "Cargar centros seleccionados".</p></div>
   </section>
 
   <section class="grid-reportes">
@@ -135,42 +162,119 @@ if (!MODO_DEMO) {
 const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
 const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
 
-const CATEGORIAS_CATALOGO = [
-  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
-  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
-  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
-  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
-  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
-];
-const DOMINIOS_CATALOGO = [
-  { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
-  { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
-  { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
-  { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
-  { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
-  { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
-  { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
-];
-const RANGOS_DOMINIO_MUYALTO = {
-  DOM_CONDICIONES: 14, DOM_CARGA: 37, DOM_CONTROL: 25, DOM_JORNADA: 6, DOM_INTERFERENCIA: 10,
-  DOM_LIDERAZGO: 20, DOM_RELACIONES: 21, DOM_VIOLENCIA: 16, DOM_RECONOCIMIENTO: 18, DOM_PERTENENCIA: 10,
-};
-const RANGOS_CATEGORIA_MUYALTO = {
-  CAT_AMBIENTE: 14, CAT_FACTORES: 60, CAT_ORG_TIEMPO: 13, CAT_LIDERAZGO: 58, CAT_ENTORNO: 23,
-};
 const ACCIONES_POR_NIVEL = {
   muy_alto: 'Se requiere realizar el analisis de cada categoria y dominio para establecer las acciones de intervencion apropiadas, mediante un Programa de intervencion que debera incluir evaluaciones especificas, y contemplar campanas de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
   alto: 'Se requiere realizar un analisis de cada categoria y dominio, de manera que se puedan determinar las acciones de intervencion apropiadas a traves de un Programa de intervencion, que podra incluir una evaluacion especifica y debera incluir una campana de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
   medio: 'Se requiere revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion, mediante un Programa de intervencion.',
   bajo: 'Es necesario una mayor difusion de la politica de prevencion de riesgos psicosociales y programas para: la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral.',
   nulo: 'El riesgo resulta despreciable por lo que no se requiere medidas adicionales.',
+}; // Texto identico entre Guia II y Guia III (misma Tabla 7 / III.4 de la norma).
+
+/* =====================================================================
+   CATALOGOS -- Guia III y Guia II en paralelo (Guia I NUNCA entra aqui:
+   identifica al colaborador y se maneja de forma clinica/individual,
+   nunca en un reporte agregado -- ver 04-centros-trabajo-y-multiguia-
+   schema.sql). Mismo criterio que admin-analisis.html.
+   ===================================================================== */
+
+const CATALOGO_G3 = {
+  etiqueta: 'Guia III',
+  numReactivos: 72,
+  categorias: [
+    { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+    { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+  ],
+  dominios: [
+    { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
+    { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
+    { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
+    { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
+    { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
+    { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
+    { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
+  ],
+  rangosDominioMuyAlto: {
+    DOM_CONDICIONES: 14, DOM_CARGA: 37, DOM_CONTROL: 25, DOM_JORNADA: 6, DOM_INTERFERENCIA: 10,
+    DOM_LIDERAZGO: 20, DOM_RELACIONES: 21, DOM_VIOLENCIA: 16, DOM_RECONOCIMIENTO: 18, DOM_PERTENENCIA: 10,
+  },
+  rangosCategoriaMuyAlto: {
+    CAT_AMBIENTE: 14, CAT_FACTORES: 60, CAT_ORG_TIEMPO: 13, CAT_LIDERAZGO: 58, CAT_ENTORNO: 23,
+  },
+  rangoGlobal: [
+    { nivel: 'nulo', limite_superior: 50 }, { nivel: 'bajo', limite_superior: 75 },
+    { nivel: 'medio', limite_superior: 99 }, { nivel: 'alto', limite_superior: 140 },
+    { nivel: 'muy_alto', limite_superior: null },
+  ],
 };
-const TEXTO_OBJETIVO = 'Identificar los factores de riesgo psicosocial y evaluar el entorno organizacional en el centro de trabajo, en cumplimiento de la NOM-035-STPS-2018, mediante la aplicacion del cuestionario de la Guia de Referencia III.';
-const TEXTO_METODOLOGIA = 'Se aplico el cuestionario oficial de la Guia de Referencia III (72 reactivos, escala tipo Likert de 5 opciones: Siempre, Casi siempre, Algunas veces, Casi nunca, Nunca), respetando los reactivos de puntuacion invertida y la agrupacion oficial en dimensiones, dominios y categorias. Las respuestas se recolectaron de forma anonima: el sistema unicamente registra que un colaborador ya contesto, nunca que fue lo que respondio, mediante una separacion estructural entre la tabla de seguimiento (con datos personales) y la tabla de resultados (sin ningun dato identificable).';
-const TEXTO_CUMPLIMIENTO = 'La calificacion se realizo con el catalogo normativo validado reactivo por reactivo contra la Guia III publicada por la STPS (textos, dimensiones, dominios, categorias, reactivos invertidos y rangos de riesgo), y con un motor de calculo probado mediante pruebas automatizadas. No se modifico, resumio ni reinterpreto la metodologia oficial en ningun punto del proceso.';
+
+const CATALOGO_G2 = {
+  etiqueta: 'Guia II',
+  numReactivos: 46,
+  categorias: [
+    { id: 'G2_CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'G2_CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'G2_CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'G2_CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  ],
+  dominios: [
+    { id: 'G2_DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'G2_CAT_AMBIENTE' },
+    { id: 'G2_DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'G2_CAT_FACTORES' },
+    { id: 'G2_DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'G2_CAT_FACTORES' },
+    { id: 'G2_DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'G2_CAT_ORG_TIEMPO' },
+    { id: 'G2_DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'G2_CAT_ORG_TIEMPO' },
+    { id: 'G2_DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'G2_CAT_LIDERAZGO' },
+    { id: 'G2_DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'G2_CAT_LIDERAZGO' },
+    { id: 'G2_DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'G2_CAT_LIDERAZGO' },
+  ],
+  rangosDominioMuyAlto: {
+    G2_DOM_CONDICIONES: 9, G2_DOM_CARGA: 24, G2_DOM_CONTROL: 14, G2_DOM_JORNADA: 6,
+    G2_DOM_INTERFERENCIA: 6, G2_DOM_LIDERAZGO: 11, G2_DOM_RELACIONES: 14, G2_DOM_VIOLENCIA: 16,
+  },
+  rangosCategoriaMuyAlto: {
+    G2_CAT_AMBIENTE: 9, G2_CAT_FACTORES: 34, G2_CAT_ORG_TIEMPO: 8, G2_CAT_LIDERAZGO: 38,
+  },
+  rangoGlobal: [
+    { nivel: 'nulo', limite_superior: 20 }, { nivel: 'bajo', limite_superior: 45 },
+    { nivel: 'medio', limite_superior: 70 }, { nivel: 'alto', limite_superior: 90 },
+    { nivel: 'muy_alto', limite_superior: null },
+  ],
+};
+
+const CENTROS_TRABAJO = [
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
+  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_3'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_3'] },
+  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_3'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+];
+const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
+
+function guiaPrincipalDeCentro(centroId) {
+  const centro = CENTRO_POR_ID.get(centroId);
+  if (!centro) return 'guia_3';
+  return centro.guias_activas.indexOf('guia_2') !== -1 ? 'guia_2' : 'guia_3';
+}
+function catalogoDeGuia(guia) { return guia === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3; }
+
+const TEXTO_OBJETIVO = 'Identificar los factores de riesgo psicosocial y evaluar el entorno organizacional en cada centro de trabajo incluido en este reporte, en cumplimiento de la NOM-035-STPS-2018, mediante la aplicacion del cuestionario oficial correspondiente (Guia de Referencia II o III, segun el tamano de plantilla de cada centro).';
+const TEXTO_METODOLOGIA = 'Se aplico el cuestionario oficial correspondiente a cada centro de trabajo -- la Guia de Referencia II (46 reactivos, para centros de 16 a 50 trabajadores) o la Guia de Referencia III (72 reactivos, para centros de mas de 50 trabajadores), ambas en escala tipo Likert de 5 opciones: Siempre, Casi siempre, Algunas veces, Casi nunca, Nunca -- respetando los reactivos de puntuacion invertida y la agrupacion oficial en dimensiones, dominios y categorias de cada guia. Las respuestas se recolectaron de forma anonima: el sistema unicamente registra que un colaborador ya contesto, nunca que fue lo que respondio, mediante una separacion estructural entre la tabla de seguimiento (con datos personales) y la tabla de resultados (sin ningun dato identificable).';
+const TEXTO_CUMPLIMIENTO = 'La calificacion de cada centro se realizo con el catalogo normativo validado reactivo por reactivo contra la guia oficial correspondiente (II o III) publicada por la STPS (textos, dimensiones, dominios, categorias, reactivos invertidos y rangos de riesgo), y con un motor de calculo probado mediante pruebas automatizadas. No se modifico, resumio ni reinterpreto la metodologia oficial en ningun punto del proceso.';
 
 // =======================================================================
 // FUNCIONES PURAS DE CONTENIDO (compartidas entre los 4 formatos)
@@ -181,16 +285,16 @@ function normalizarPct(puntaje, limiteMuyAlto) {
   return Math.round((puntaje / limiteMuyAlto) * 100);
 }
 
-function construirRankingDominios(resultados) {
-  const nombrePorId = new Map(DOMINIOS_CATALOGO.map((d) => [d.id, d.nombre]));
-  const categoriaPorId = new Map(DOMINIOS_CATALOGO.map((d) => [d.id, d.categoria_id]));
+function construirRankingDominios(resultados, catalogo) {
+  const nombrePorId = new Map(catalogo.dominios.map((d) => [d.id, d.nombre]));
+  const categoriaPorId = new Map(catalogo.dominios.map((d) => [d.id, d.categoria_id]));
   const enriquecidos = resultados.porDominio.map((d) => ({
     dominio_id: d.dominio_id,
     nombre: nombrePorId.get(d.dominio_id) || d.dominio_id,
     categoria_id: categoriaPorId.get(d.dominio_id),
     puntaje: d.puntaje,
     nivel_riesgo: d.nivel_riesgo,
-    porcentaje: normalizarPct(d.puntaje, RANGOS_DOMINIO_MUYALTO[d.dominio_id]),
+    porcentaje: normalizarPct(d.puntaje, catalogo.rangosDominioMuyAlto[d.dominio_id]),
   }));
   enriquecidos.sort((a, b) => {
     const diff = NIVEL_ORDEN[b.nivel_riesgo] - NIVEL_ORDEN[a.nivel_riesgo];
@@ -199,8 +303,8 @@ function construirRankingDominios(resultados) {
   return enriquecidos;
 }
 
-function construirTablaCategorias(resultados) {
-  const nombrePorId = new Map(CATEGORIAS_CATALOGO.map((c) => [c.id, c.nombre]));
+function construirTablaCategorias(resultados, catalogo) {
+  const nombrePorId = new Map(catalogo.categorias.map((c) => [c.id, c.nombre]));
   return resultados.porCategoria.map((c) => ({
     nombre: nombrePorId.get(c.categoria_id) || c.categoria_id,
     puntaje: c.puntaje,
@@ -209,8 +313,8 @@ function construirTablaCategorias(resultados) {
   }));
 }
 
-function construirPlanDeAccion(resultados) {
-  const ranking = construirRankingDominios(resultados);
+function construirPlanDeAccion(resultados, catalogo) {
+  const ranking = construirRankingDominios(resultados, catalogo);
   const fortalezas = ranking.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] <= 1).sort((a, b) => a.porcentaje - b.porcentaje).slice(0, 5);
   const criticos = ranking.filter((d) => NIVEL_ORDEN[d.nivel_riesgo] >= 3);
   return {
@@ -233,36 +337,78 @@ function construirResumenPeriodo(resultados, periodo) {
   };
 }
 
-// =======================================================================
-// DATOS DEMO (coherentes con el Modulo 6)
-// =======================================================================
-function generarResultadosDemo() {
+// Junta todo lo que un reporte necesita de UN centro ya cargado.
+function construirDatosCentro(centroId) {
+  const entrada = estado.resultadosPorCentro.get(centroId);
+  if (!entrada) return null;
+  const centro = CENTRO_POR_ID.get(centroId);
+  const catalogo = entrada.catalogo;
   return {
-    totalRespuestas: 41,
-    global: { puntaje: 111, nivel_riesgo: 'alto' },
-    porCategoria: [
-      { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
-      { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
-      { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
-      { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
-      { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
-    ],
-    porDominio: [
-      { dominio_id: 'DOM_CONDICIONES', puntaje: 6, nivel_riesgo: 'bajo' },
-      { dominio_id: 'DOM_CARGA', puntaje: 30, nivel_riesgo: 'alto' },
-      { dominio_id: 'DOM_CONTROL', puntaje: 12, nivel_riesgo: 'bajo' },
-      { dominio_id: 'DOM_JORNADA', puntaje: 5, nivel_riesgo: 'muy_alto' },
-      { dominio_id: 'DOM_INTERFERENCIA', puntaje: 5, nivel_riesgo: 'medio' },
-      { dominio_id: 'DOM_LIDERAZGO', puntaje: 8, nivel_riesgo: 'bajo' },
-      { dominio_id: 'DOM_RELACIONES', puntaje: 9, nivel_riesgo: 'bajo' },
-      { dominio_id: 'DOM_VIOLENCIA', puntaje: 18, nivel_riesgo: 'muy_alto' },
-      { dominio_id: 'DOM_RECONOCIMIENTO', puntaje: 15, nivel_riesgo: 'alto' },
-      { dominio_id: 'DOM_PERTENENCIA', puntaje: 3, nivel_riesgo: 'bajo' },
-    ],
+    centroId: centroId,
+    nombreCentro: centro ? centro.nombre : centroId,
+    catalogo: catalogo,
+    resumen: construirResumenPeriodo(entrada.resultados, estado.periodo),
+    ranking: construirRankingDominios(entrada.resultados, catalogo),
+    tablaCategorias: construirTablaCategorias(entrada.resultados, catalogo),
+    plan: construirPlanDeAccion(entrada.resultados, catalogo),
   };
 }
 
-const estado = { resultados: null, periodo: '2026-Q3' };
+function centrosSeleccionadosConDatos() {
+  return estado.centrosSeleccionados
+    .map(construirDatosCentro)
+    .filter((d) => d !== null);
+}
+
+// =======================================================================
+// DATOS DEMO (mismo patron narrativo que admin-analisis.html: puntajes
+// expresados como % del umbral "muy_alto" de cada dominio/categoria, asi
+// el demo se ve coherente sin importar que catalogo este activo)
+// =======================================================================
+function generarResultadosDemo(catalogo) {
+  const patronDominio = [0.45, 0.85, 0.5, 0.9, 0.5, 0.42, 0.43, 1.15, 0.85, 0.3];
+  const porDominio = catalogo.dominios.map((d, i) => {
+    const limite = catalogo.rangosDominioMuyAlto[d.id] || 10;
+    const puntaje = Math.max(0, Math.round(limite * patronDominio[i % patronDominio.length]));
+    return { dominio_id: d.id, puntaje, nivel_riesgo: nivelPorPct(puntaje / limite) };
+  });
+
+  const dominioPorCategoria = new Map();
+  porDominio.forEach((pd) => {
+    const categoriaId = catalogo.dominios.find((d) => d.id === pd.dominio_id).categoria_id;
+    dominioPorCategoria.set(categoriaId, (dominioPorCategoria.get(categoriaId) || 0) + pd.puntaje);
+  });
+  const porCategoria = catalogo.categorias.map((c) => {
+    const puntaje = dominioPorCategoria.get(c.id) || 0;
+    const limite = catalogo.rangosCategoriaMuyAlto[c.id] || puntaje || 1;
+    return { categoria_id: c.id, puntaje, nivel_riesgo: nivelPorPct(puntaje / limite) };
+  });
+
+  const puntajeGlobal = porCategoria.reduce((acc, c) => acc + c.puntaje, 0);
+  const global = { puntaje: puntajeGlobal, nivel_riesgo: nivelGlobalDemo(puntajeGlobal, catalogo) };
+
+  return { totalRespuestas: 41, global, porCategoria, porDominio };
+}
+function nivelPorPct(pct) {
+  if (pct < 0.36) return 'nulo';
+  if (pct < 0.64) return 'bajo';
+  if (pct < 0.79) return 'medio';
+  if (pct < 1) return 'alto';
+  return 'muy_alto';
+}
+function nivelGlobalDemo(puntaje, catalogo) {
+  for (const r of catalogo.rangoGlobal) {
+    if (r.limite_superior == null || puntaje < r.limite_superior) return r.nivel;
+  }
+  return 'muy_alto';
+}
+
+const estado = {
+  periodo: '2026-Q3',
+  centrosSeleccionados: [],
+  resultadosPorCentro: new Map(), // centroId -> { guia, catalogo, resultados }
+  errorCarga: null,
+};
 window.estado = estado;
 
 // =======================================================================
@@ -272,74 +418,80 @@ function colorNivelHex(nivel) {
   return { nulo: '#1f8a4c', bajo: '#6fae4a', medio: '#c99a2e', alto: '#e2711d', muy_alto: '#e50d2e' }[nivel] || '#888';
 }
 
-function construirDocDefinicionPDF(tipo, resultados, periodo) {
-  const resumen = construirResumenPeriodo(resultados, periodo);
-  const ranking = construirRankingDominios(resultados);
-  const tablaCategorias = construirTablaCategorias(resultados);
-  const plan = construirPlanDeAccion(resultados);
+function construirDocDefinicionPDF(tipo, centros, periodo) {
+  const fechaGeneracion = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const totalRespuestas = centros.reduce((acc, c) => acc + c.resumen.totalRespuestas, 0);
+  const nombresCentros = centros.map((c) => c.nombreCentro).join(', ');
 
   const portada = [
     { text: 'Riverline', style: 'marca' },
     { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo NOM-035' : 'Reporte Tecnico NOM-035', style: 'tituloPortada', margin: [0, 60, 0, 6] },
-    { text: 'Guia de Referencia III · Identificacion de riesgo psicosocial', style: 'subtituloPortada' },
-    { text: 'Periodo: ' + resumen.periodo, margin: [0, 30, 0, 2], style: 'metaPortada' },
-    { text: 'Generado: ' + resumen.fechaGeneracion, style: 'metaPortada' },
-    { text: 'Respuestas anonimas incluidas: ' + resumen.totalRespuestas, style: 'metaPortada' },
+    { text: 'Identificacion de riesgo psicosocial · Guia de Referencia II y III', style: 'subtituloPortada' },
+    { text: 'Centros incluidos: ' + nombresCentros, margin: [0, 30, 0, 2], style: 'metaPortada' },
+    { text: 'Periodo: ' + periodo, style: 'metaPortada' },
+    { text: 'Generado: ' + fechaGeneracion, style: 'metaPortada' },
+    { text: 'Respuestas anonimas incluidas (todos los centros): ' + totalRespuestas, style: 'metaPortada' },
     { text: '', pageBreak: 'after' },
   ];
 
-  const seccionResultados = [
-    { text: 'Calificacion global', style: 'h2' },
-    {
-      columns: [
-        { width: 'auto', text: String(resumen.puntajeGlobal), style: 'cifraGrande', color: colorNivelHex(resumen.nivelGlobal) },
-        { width: '*', text: [{ text: '\n' + resumen.etiquetaGlobal + '\n', bold: true, color: colorNivelHex(resumen.nivelGlobal) }, { text: 'Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.', style: 'nota' }] },
-      ],
-      margin: [0, 4, 0, 16],
-    },
-    { text: 'Calificacion por categoria', style: 'h2' },
-    {
-      table: {
-        widths: ['*', 'auto', 'auto'],
-        body: [
-          [{ text: 'Categoria', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
-          ...tablaCategorias.map((c) => [c.nombre, String(c.puntaje), { text: c.etiqueta, color: colorNivelHex(c.nivel_riesgo), bold: true }]),
+  function seccionCentro(c, esPrimero) {
+    const bloques = [
+      { text: c.nombreCentro, style: 'h1Centro', pageBreak: esPrimero ? undefined : 'before' },
+      { text: c.catalogo.etiqueta + ' · ' + c.resumen.totalRespuestas + ' respuestas anonimas', style: 'subtituloPortada', margin: [0, 0, 0, 10] },
+      { text: 'Calificacion global', style: 'h2' },
+      {
+        columns: [
+          { width: 'auto', text: String(c.resumen.puntajeGlobal), style: 'cifraGrande', color: colorNivelHex(c.resumen.nivelGlobal) },
+          { width: '*', text: [{ text: '\n' + c.resumen.etiquetaGlobal + '\n', bold: true, color: colorNivelHex(c.resumen.nivelGlobal) }, { text: 'Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la ' + c.catalogo.etiqueta + '.', style: 'nota' }] },
         ],
+        margin: [0, 4, 0, 16],
       },
-      layout: 'lightHorizontalLines',
-      margin: [0, 4, 0, 16],
-    },
-    { text: 'Ranking de dominios (mayor a menor severidad relativa)', style: 'h2' },
-    {
-      table: {
-        widths: ['auto', '*', 'auto', 'auto'],
-        body: [
-          [{ text: '#', style: 'th' }, { text: 'Dominio', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
-          ...ranking.map((d, i) => [String(i + 1), d.nombre, String(d.puntaje), { text: NIVEL_ETIQUETA[d.nivel_riesgo], color: colorNivelHex(d.nivel_riesgo), bold: true }]),
-        ],
+      { text: 'Calificacion por categoria', style: 'h2' },
+      {
+        table: {
+          widths: ['*', 'auto', 'auto'],
+          body: [
+            [{ text: 'Categoria', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
+            ...c.tablaCategorias.map((cat) => [cat.nombre, String(cat.puntaje), { text: cat.etiqueta, color: colorNivelHex(cat.nivel_riesgo), bold: true }]),
+          ],
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 4, 0, 16],
       },
-      layout: 'lightHorizontalLines',
-      margin: [0, 4, 0, 16],
-    },
-  ];
+      { text: 'Ranking de dominios (mayor a menor severidad relativa)', style: 'h2' },
+      {
+        table: {
+          widths: ['auto', '*', 'auto', 'auto'],
+          body: [
+            [{ text: '#', style: 'th' }, { text: 'Dominio', style: 'th' }, { text: 'Puntaje', style: 'th' }, { text: 'Nivel', style: 'th' }],
+            ...c.ranking.map((d, i) => [String(i + 1), d.nombre, String(d.puntaje), { text: NIVEL_ETIQUETA[d.nivel_riesgo], color: colorNivelHex(d.nivel_riesgo), bold: true }]),
+          ],
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 4, 0, 16],
+      },
+      { text: 'Plan de accion', style: 'h2' },
+      { text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[c.plan.nivelGlobal].toLowerCase() + ')', style: 'h3' },
+      { text: c.plan.accionOficial, style: 'cita', margin: [0, 2, 0, 12] },
+      { text: 'Dominios prioritarios', style: 'h3' },
+      c.plan.dominiosPrioritarios.length > 0
+        ? { ul: c.plan.dominiosPrioritarios.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
+        : { text: 'No se identificaron dominios en nivel alto o muy alto.' },
+      { text: 'Fortalezas', style: 'h3', margin: [0, 12, 0, 4] },
+      c.plan.fortalezas.length > 0
+        ? { ul: c.plan.fortalezas.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
+        : { text: 'No se identificaron dominios en nivel nulo o bajo.' },
+    ];
+    return bloques;
+  }
 
-  const seccionPlan = [
-    { text: 'Plan de accion', style: 'h2' },
-    { text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[plan.nivelGlobal].toLowerCase() + ')', style: 'h3' },
-    { text: plan.accionOficial, style: 'cita', margin: [0, 2, 0, 12] },
-    { text: 'Dominios prioritarios', style: 'h3' },
-    plan.dominiosPrioritarios.length > 0
-      ? { ul: plan.dominiosPrioritarios.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
-      : { text: 'No se identificaron dominios en nivel alto o muy alto.' },
-    { text: 'Fortalezas', style: 'h3', margin: [0, 12, 0, 4] },
-    plan.fortalezas.length > 0
-      ? { ul: plan.fortalezas.map((d) => d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo]) }
-      : { text: 'No se identificaron dominios en nivel nulo o bajo.' },
-  ];
-
-  const contenido = [...portada, ...seccionResultados];
+  let contenido = [...portada];
+  centros.forEach((c, i) => { contenido = contenido.concat(seccionCentro(c, i === 0)); });
 
   if (tipo === 'tecnico') {
+    const catalogosUsados = [];
+    centros.forEach((c) => { if (!catalogosUsados.some((cat) => cat.etiqueta === c.catalogo.etiqueta)) catalogosUsados.push(c.catalogo); });
+
     contenido.push(
       { text: 'Objetivo', style: 'h2', pageBreak: 'before' },
       { text: TEXTO_OBJETIVO, margin: [0, 2, 0, 14] },
@@ -347,16 +499,16 @@ function construirDocDefinicionPDF(tipo, resultados, periodo) {
       { text: TEXTO_METODOLOGIA, margin: [0, 2, 0, 14] },
       { text: 'Cumplimiento normativo', style: 'h2' },
       { text: TEXTO_CUMPLIMIENTO, margin: [0, 2, 0, 14] },
-      ...seccionPlan,
-      { text: 'Anexos', style: 'h2', pageBreak: 'before' },
-      { text: 'Catalogo de categorias y dominios evaluados (Guia de Referencia III, NOM-035-STPS-2018):', margin: [0, 2, 0, 8] },
-      {
-        ul: DOMINIOS_CATALOGO.map((d) => d.nombre + ' (' + (CATEGORIAS_CATALOGO.find((c) => c.id === d.categoria_id) || {}).nombre + ')'),
-        style: 'nota',
-      }
+      { text: 'Anexos', style: 'h2', pageBreak: 'before' }
     );
+    catalogosUsados.forEach((cat) => {
+      contenido.push(
+        { text: 'Catalogo de categorias y dominios evaluados (' + cat.etiqueta + ', NOM-035-STPS-2018):', margin: [0, 2, 0, 8] },
+        { ul: cat.dominios.map((d) => d.nombre + ' (' + (cat.categorias.find((c2) => c2.id === d.categoria_id) || {}).nombre + ')'), style: 'nota' }
+      );
+    });
   } else {
-    contenido.push({ text: '', pageBreak: 'before' }, ...seccionPlan);
+    contenido.push({ text: '', pageBreak: 'before' }, { text: 'Este reporte ejecutivo incluye ' + centros.length + ' centro(s) de trabajo. Consulta el Reporte Tecnico para metodologia, cumplimiento normativo y anexos por guia.', style: 'nota' });
   }
 
   return {
@@ -368,6 +520,7 @@ function construirDocDefinicionPDF(tipo, resultados, periodo) {
       tituloPortada: { fontSize: 26, bold: true },
       subtituloPortada: { fontSize: 13, color: '#4a4d57' },
       metaPortada: { fontSize: 11, color: '#4a4d57' },
+      h1Centro: { fontSize: 19, bold: true, margin: [0, 0, 0, 2] },
       h2: { fontSize: 15, bold: true, margin: [0, 10, 0, 6] },
       h3: { fontSize: 12.5, bold: true, margin: [0, 4, 0, 4] },
       th: { bold: true, fillColor: '#f4f4f7' },
@@ -380,8 +533,10 @@ function construirDocDefinicionPDF(tipo, resultados, periodo) {
 }
 
 function generarPDF(tipo) {
-  const docDefinicion = construirDocDefinicionPDF(tipo, estado.resultados, estado.periodo);
-  const nombreArchivo = 'reporte-' + tipo + '-nom035-' + estado.periodo + '.pdf';
+  const centros = centrosSeleccionadosConDatos();
+  const docDefinicion = construirDocDefinicionPDF(tipo, centros, estado.periodo);
+  const sufijo = centros.length === 1 ? centros[0].centroId : centros.length + 'centros';
+  const nombreArchivo = 'reporte-' + tipo + '-nom035-' + sufijo + '-' + estado.periodo + '.pdf';
   window.pdfMake.createPdf(docDefinicion).download(nombreArchivo);
 }
 
@@ -389,53 +544,63 @@ function generarPDF(tipo) {
 // GENERACION: EXCEL (SheetJS)
 // =======================================================================
 function generarExcel() {
-  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
-  const ranking = construirRankingDominios(estado.resultados);
-  const categorias = construirTablaCategorias(estado.resultados);
-  const plan = construirPlanDeAccion(estado.resultados);
-
+  const centros = centrosSeleccionadosConDatos();
   const libro = window.XLSX.utils.book_new();
 
-  const hojaResumen = window.XLSX.utils.json_to_sheet([
-    { Campo: 'Periodo', Valor: resumen.periodo },
-    { Campo: 'Respuestas anonimas', Valor: resumen.totalRespuestas },
-    { Campo: 'Calificacion global (Cfinal)', Valor: resumen.puntajeGlobal },
-    { Campo: 'Nivel de riesgo global', Valor: resumen.etiquetaGlobal },
-    { Campo: 'Fecha de generacion', Valor: resumen.fechaGeneracion },
-  ]);
+  const hojaResumen = window.XLSX.utils.json_to_sheet(
+    centros.map((c) => ({
+      Centro: c.nombreCentro,
+      Guia: c.catalogo.etiqueta,
+      Periodo: c.resumen.periodo,
+      'Respuestas anonimas': c.resumen.totalRespuestas,
+      'Calificacion global (Cfinal)': c.resumen.puntajeGlobal,
+      'Nivel de riesgo global': c.resumen.etiquetaGlobal,
+      'Fecha de generacion': c.resumen.fechaGeneracion,
+    }))
+  );
   window.XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
 
-  const hojaCategorias = window.XLSX.utils.json_to_sheet(
-    categorias.map((c) => ({ Categoria: c.nombre, Puntaje: c.puntaje, Nivel: c.etiqueta }))
-  );
-  window.XLSX.utils.book_append_sheet(libro, hojaCategorias, 'Categorias');
+  // Nombres de hoja limitados a 31 caracteres por el formato .xlsx.
+  function nombreHoja(prefijo, nombreCentro) {
+    const base = prefijo + ' ' + nombreCentro;
+    return base.length > 31 ? base.slice(0, 31) : base;
+  }
 
-  const hojaDominios = window.XLSX.utils.json_to_sheet(
-    ranking.map((d, i) => ({ '#': i + 1, Dominio: d.nombre, Puntaje: d.puntaje, Nivel: NIVEL_ETIQUETA[d.nivel_riesgo] }))
-  );
-  window.XLSX.utils.book_append_sheet(libro, hojaDominios, 'Dominios');
+  centros.forEach((c) => {
+    const hojaCategorias = window.XLSX.utils.json_to_sheet(
+      c.tablaCategorias.map((cat) => ({ Categoria: cat.nombre, Puntaje: cat.puntaje, Nivel: cat.etiqueta }))
+    );
+    window.XLSX.utils.book_append_sheet(libro, hojaCategorias, nombreHoja('Cat', c.nombreCentro));
 
-  const filasPlan = [
-    { Seccion: 'Nivel global', Detalle: NIVEL_ETIQUETA[plan.nivelGlobal] },
-    { Seccion: 'Accion oficial', Detalle: plan.accionOficial },
-    ...plan.dominiosPrioritarios.map((d) => ({ Seccion: 'Dominio prioritario', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
-    ...plan.fortalezas.map((d) => ({ Seccion: 'Fortaleza', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
-  ];
-  const hojaPlan = window.XLSX.utils.json_to_sheet(filasPlan);
-  window.XLSX.utils.book_append_sheet(libro, hojaPlan, 'Plan de accion');
+    const hojaDominios = window.XLSX.utils.json_to_sheet(
+      c.ranking.map((d, i) => ({ '#': i + 1, Dominio: d.nombre, Puntaje: d.puntaje, Nivel: NIVEL_ETIQUETA[d.nivel_riesgo] }))
+    );
+    window.XLSX.utils.book_append_sheet(libro, hojaDominios, nombreHoja('Dom', c.nombreCentro));
 
-  window.XLSX.writeFile(libro, 'reporte-nom035-' + estado.periodo + '.xlsx');
+    const filasPlan = [
+      { Seccion: 'Guia', Detalle: c.catalogo.etiqueta },
+      { Seccion: 'Nivel global', Detalle: NIVEL_ETIQUETA[c.plan.nivelGlobal] },
+      { Seccion: 'Accion oficial', Detalle: c.plan.accionOficial },
+      ...c.plan.dominiosPrioritarios.map((d) => ({ Seccion: 'Dominio prioritario', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
+      ...c.plan.fortalezas.map((d) => ({ Seccion: 'Fortaleza', Detalle: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] })),
+    ];
+    const hojaPlan = window.XLSX.utils.json_to_sheet(filasPlan);
+    window.XLSX.utils.book_append_sheet(libro, hojaPlan, nombreHoja('Plan', c.nombreCentro));
+  });
+
+  const sufijo = centros.length === 1 ? centros[0].centroId : centros.length + 'centros';
+  window.XLSX.writeFile(libro, 'reporte-nom035-' + sufijo + '-' + estado.periodo + '.xlsx');
 }
 
 // =======================================================================
 // GENERACION: WORD (docx)
 // =======================================================================
 async function generarWord() {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } = window.docx;
-  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
-  const ranking = construirRankingDominios(estado.resultados);
-  const categorias = construirTablaCategorias(estado.resultados);
-  const plan = construirPlanDeAccion(estado.resultados);
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, PageBreak } = window.docx;
+  const centros = centrosSeleccionadosConDatos();
+  const fechaGeneracion = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const totalRespuestas = centros.reduce((acc, c) => acc + c.resumen.totalRespuestas, 0);
+  const nombresCentros = centros.map((c) => c.nombreCentro).join(', ');
 
   function filaTabla(celdas, encabezado) {
     return new TableRow({
@@ -445,65 +610,74 @@ async function generarWord() {
     });
   }
 
-  const tablaCategoriasDocx = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      filaTabla(['Categoria', 'Puntaje', 'Nivel'], true),
-      ...categorias.map((c) => filaTabla([c.nombre, c.puntaje, c.etiqueta])),
-    ],
-  });
+  const hijos = [
+    new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'Reporte Tecnico NOM-035 · Guia de Referencia II y III', heading: HeadingLevel.HEADING_1 }),
+    new Paragraph({ text: 'Centros incluidos: ' + nombresCentros }),
+    new Paragraph({ text: 'Periodo: ' + estado.periodo + '   ·   Generado: ' + fechaGeneracion }),
+    new Paragraph({ text: 'Respuestas anonimas incluidas (todos los centros): ' + totalRespuestas }),
+    new Paragraph({ text: '' }),
 
-  const tablaDominiosDocx = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      filaTabla(['#', 'Dominio', 'Puntaje', 'Nivel'], true),
-      ...ranking.map((d, i) => filaTabla([i + 1, d.nombre, d.puntaje, NIVEL_ETIQUETA[d.nivel_riesgo]])),
-    ],
-  });
+    new Paragraph({ text: 'Objetivo', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_OBJETIVO }),
+    new Paragraph({ text: 'Metodologia', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_METODOLOGIA }),
+    new Paragraph({ text: 'Cumplimiento normativo', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_CUMPLIMIENTO }),
+  ];
 
-  const documento = new Document({
-    sections: [{
-      children: [
-        new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
-        new Paragraph({ text: 'Reporte Tecnico NOM-035 · Guia de Referencia III', heading: HeadingLevel.HEADING_1 }),
-        new Paragraph({ text: 'Periodo: ' + resumen.periodo + '   ·   Generado: ' + resumen.fechaGeneracion }),
-        new Paragraph({ text: 'Respuestas anonimas incluidas: ' + resumen.totalRespuestas }),
-        new Paragraph({ text: '' }),
-
-        new Paragraph({ text: 'Objetivo', heading: HeadingLevel.HEADING_2 }),
-        new Paragraph({ text: TEXTO_OBJETIVO }),
-        new Paragraph({ text: 'Metodologia', heading: HeadingLevel.HEADING_2 }),
-        new Paragraph({ text: TEXTO_METODOLOGIA }),
-        new Paragraph({ text: 'Cumplimiento normativo', heading: HeadingLevel.HEADING_2 }),
-        new Paragraph({ text: TEXTO_CUMPLIMIENTO }),
-
-        new Paragraph({ text: 'Resultados por categoria', heading: HeadingLevel.HEADING_2 }),
-        tablaCategoriasDocx,
-        new Paragraph({ text: '' }),
-        new Paragraph({ text: 'Ranking de dominios', heading: HeadingLevel.HEADING_2 }),
-        tablaDominiosDocx,
-        new Paragraph({ text: '' }),
-
-        new Paragraph({ text: 'Plan de accion', heading: HeadingLevel.HEADING_2 }),
-        new Paragraph({ text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[plan.nivelGlobal].toLowerCase() + ')', heading: HeadingLevel.HEADING_3 }),
-        new Paragraph({ text: plan.accionOficial }),
-        new Paragraph({ text: 'Dominios prioritarios', heading: HeadingLevel.HEADING_3 }),
-        ...(plan.dominiosPrioritarios.length > 0
-          ? plan.dominiosPrioritarios.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
-          : [new Paragraph({ text: 'No se identificaron dominios en nivel alto o muy alto.' })]),
-        new Paragraph({ text: 'Fortalezas', heading: HeadingLevel.HEADING_3 }),
-        ...(plan.fortalezas.length > 0
-          ? plan.fortalezas.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
-          : [new Paragraph({ text: 'No se identificaron dominios en nivel nulo o bajo.' })]),
+  centros.forEach((c, i) => {
+    const tablaCategoriasDocx = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        filaTabla(['Categoria', 'Puntaje', 'Nivel'], true),
+        ...c.tablaCategorias.map((cat) => filaTabla([cat.nombre, cat.puntaje, cat.etiqueta])),
       ],
-    }],
+    });
+    const tablaDominiosDocx = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        filaTabla(['#', 'Dominio', 'Puntaje', 'Nivel'], true),
+        ...c.ranking.map((d, i2) => filaTabla([i2 + 1, d.nombre, d.puntaje, NIVEL_ETIQUETA[d.nivel_riesgo]])),
+      ],
+    });
+
+    hijos.push(
+      new Paragraph({ children: i === 0 ? [] : [new PageBreak()] }),
+      new Paragraph({ text: c.nombreCentro, heading: HeadingLevel.HEADING_1 }),
+      new Paragraph({ text: c.catalogo.etiqueta + ' · ' + c.resumen.totalRespuestas + ' respuestas anonimas' }),
+      new Paragraph({ text: 'Calificacion global: ' + c.resumen.puntajeGlobal + ' (' + c.resumen.etiquetaGlobal + ')' }),
+      new Paragraph({ text: '' }),
+
+      new Paragraph({ text: 'Resultados por categoria', heading: HeadingLevel.HEADING_2 }),
+      tablaCategoriasDocx,
+      new Paragraph({ text: '' }),
+      new Paragraph({ text: 'Ranking de dominios', heading: HeadingLevel.HEADING_2 }),
+      tablaDominiosDocx,
+      new Paragraph({ text: '' }),
+
+      new Paragraph({ text: 'Plan de accion', heading: HeadingLevel.HEADING_2 }),
+      new Paragraph({ text: 'Interpretacion oficial (nivel ' + NIVEL_ETIQUETA[c.plan.nivelGlobal].toLowerCase() + ')', heading: HeadingLevel.HEADING_3 }),
+      new Paragraph({ text: c.plan.accionOficial }),
+      new Paragraph({ text: 'Dominios prioritarios', heading: HeadingLevel.HEADING_3 }),
+      ...(c.plan.dominiosPrioritarios.length > 0
+        ? c.plan.dominiosPrioritarios.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
+        : [new Paragraph({ text: 'No se identificaron dominios en nivel alto o muy alto.' })]),
+      new Paragraph({ text: 'Fortalezas', heading: HeadingLevel.HEADING_3 }),
+      ...(c.plan.fortalezas.length > 0
+        ? c.plan.fortalezas.map((d) => new Paragraph({ text: '• ' + d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] }))
+        : [new Paragraph({ text: 'No se identificaron dominios en nivel nulo o bajo.' })])
+    );
   });
+
+  const documento = new Document({ sections: [{ children: hijos }] });
 
   const blob = await Packer.toBlob(documento);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'reporte-tecnico-nom035-' + estado.periodo + '.docx';
+  const sufijo = centros.length === 1 ? centros[0].centroId : centros.length + 'centros';
+  a.download = 'reporte-tecnico-nom035-' + sufijo + '-' + estado.periodo + '.docx';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -512,9 +686,10 @@ async function generarWord() {
 // GENERACION: POWERPOINT (pptxgenjs)
 // =======================================================================
 function generarPowerPoint() {
-  const resumen = construirResumenPeriodo(estado.resultados, estado.periodo);
-  const ranking = construirRankingDominios(estado.resultados);
-  const plan = construirPlanDeAccion(estado.resultados);
+  const centros = centrosSeleccionadosConDatos();
+  const fechaGeneracion = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const totalRespuestas = centros.reduce((acc, c) => acc + c.resumen.totalRespuestas, 0);
+  const nombresCentros = centros.map((c) => c.nombreCentro).join(', ');
 
   const pres = new window.PptxGenJS();
   pres.defineLayout({ name: 'RIVERLINE', width: 10, height: 5.63 });
@@ -524,69 +699,115 @@ function generarPowerPoint() {
   let slide = pres.addSlide();
   slide.background = { color: '15161A' };
   slide.addText('Riverline', { x: 0.5, y: 0.5, fontSize: 14, bold: true, color: 'E50D2E' });
-  slide.addText('Reporte Ejecutivo NOM-035', { x: 0.5, y: 2.1, fontSize: 32, bold: true, color: 'FFFFFF' });
-  slide.addText('Guia de Referencia III · Periodo ' + resumen.periodo, { x: 0.5, y: 2.9, fontSize: 14, color: 'C7C9D1' });
-  slide.addText('Generado: ' + resumen.fechaGeneracion + '  ·  Respuestas anonimas: ' + resumen.totalRespuestas, { x: 0.5, y: 3.3, fontSize: 11, color: '8A8D97' });
+  slide.addText('Reporte Ejecutivo NOM-035', { x: 0.5, y: 1.9, fontSize: 32, bold: true, color: 'FFFFFF' });
+  slide.addText('Centros: ' + nombresCentros, { x: 0.5, y: 2.75, w: 9, fontSize: 13, color: 'C7C9D1' });
+  slide.addText('Periodo ' + estado.periodo + '  ·  Generado: ' + fechaGeneracion + '  ·  Respuestas anonimas: ' + totalRespuestas, { x: 0.5, y: 3.3, fontSize: 11, color: '8A8D97' });
 
-  // Objetivo
+  // Objetivo (una sola vez, compartido)
   slide = pres.addSlide();
   slide.addText('Objetivo', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
-  slide.addText(TEXTO_OBJETIVO, { x: 0.5, y: 1.3, w: 9, fontSize: 15, color: '4A4D57' });
+  slide.addText(TEXTO_OBJETIVO, { x: 0.5, y: 1.3, w: 9, fontSize: 14, color: '4A4D57' });
 
-  // Calificacion global
-  slide = pres.addSlide();
-  slide.addText('Calificacion global', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
-  slide.addText(String(resumen.puntajeGlobal), { x: 0.5, y: 1.4, fontSize: 60, bold: true, color: colorNivelHex(resumen.nivelGlobal).replace('#', '') });
-  slide.addText(resumen.etiquetaGlobal, { x: 0.5, y: 3.1, fontSize: 20, bold: true, color: colorNivelHex(resumen.nivelGlobal).replace('#', '') });
-  slide.addText('Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.', { x: 0.5, y: 3.7, w: 8, fontSize: 11, color: '8A8D97' });
+  centros.forEach((c) => {
+    // Portadilla de centro
+    slide = pres.addSlide();
+    slide.background = { color: '15161A' };
+    slide.addText(c.nombreCentro, { x: 0.5, y: 2.0, fontSize: 30, bold: true, color: 'FFFFFF' });
+    slide.addText(c.catalogo.etiqueta + ' · ' + c.resumen.totalRespuestas + ' respuestas anonimas', { x: 0.5, y: 2.75, fontSize: 14, color: 'C7C9D1' });
 
-  // Ranking de dominios (grafica de barras nativa)
-  slide = pres.addSlide();
-  slide.addText('Ranking de dominios', { x: 0.5, y: 0.35, fontSize: 20, bold: true, color: '15161A' });
-  slide.addChart(pres.ChartType.bar, [{
-    name: 'Severidad relativa (%)',
-    labels: ranking.map((d) => d.nombre),
-    values: ranking.map((d) => d.porcentaje),
-  }], { x: 0.4, y: 1.0, w: 9, h: 4.3, barDir: 'bar', showValue: true, chartColors: ranking.map((d) => colorNivelHex(d.nivel_riesgo).replace('#', '')) });
+    // Calificacion global
+    slide = pres.addSlide();
+    slide.addText('Calificacion global', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+    slide.addText(String(c.resumen.puntajeGlobal), { x: 0.5, y: 1.4, fontSize: 60, bold: true, color: colorNivelHex(c.resumen.nivelGlobal).replace('#', '') });
+    slide.addText(c.resumen.etiquetaGlobal, { x: 0.5, y: 3.1, fontSize: 20, bold: true, color: colorNivelHex(c.resumen.nivelGlobal).replace('#', '') });
+    slide.addText('Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la ' + c.catalogo.etiqueta + '.', { x: 0.5, y: 3.7, w: 8, fontSize: 11, color: '8A8D97' });
 
-  // Plan de accion - interpretacion oficial
-  slide = pres.addSlide();
-  slide.addText('Plan de accion', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
-  slide.addText('Interpretacion oficial (nivel ' + resumen.etiquetaGlobal.toLowerCase() + ')', { x: 0.5, y: 1.15, fontSize: 14, bold: true, color: '4A4D57' });
-  slide.addText(plan.accionOficial, { x: 0.5, y: 1.6, w: 9, fontSize: 12.5, color: '1F2128' });
+    // Ranking de dominios (grafica de barras nativa)
+    slide = pres.addSlide();
+    slide.addText('Ranking de dominios · ' + c.nombreCentro, { x: 0.5, y: 0.35, fontSize: 18, bold: true, color: '15161A' });
+    slide.addChart(pres.ChartType.bar, [{
+      name: 'Severidad relativa (%)',
+      labels: c.ranking.map((d) => d.nombre),
+      values: c.ranking.map((d) => d.porcentaje),
+    }], { x: 0.4, y: 1.0, w: 9, h: 4.3, barDir: 'bar', showValue: true, chartColors: c.ranking.map((d) => colorNivelHex(d.nivel_riesgo).replace('#', '')) });
 
-  // Dominios prioritarios
-  slide = pres.addSlide();
-  slide.addText('Dominios prioritarios', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
-  const textoCriticos = plan.dominiosPrioritarios.length > 0
-    ? plan.dominiosPrioritarios.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
-    : [{ text: 'No se identificaron dominios en nivel alto o muy alto.' }];
-  slide.addText(textoCriticos, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
+    // Plan de accion - interpretacion oficial
+    slide = pres.addSlide();
+    slide.addText('Plan de accion', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
+    slide.addText('Interpretacion oficial (nivel ' + c.resumen.etiquetaGlobal.toLowerCase() + ')', { x: 0.5, y: 1.15, fontSize: 14, bold: true, color: '4A4D57' });
+    slide.addText(c.plan.accionOficial, { x: 0.5, y: 1.6, w: 9, fontSize: 12.5, color: '1F2128' });
 
-  // Fortalezas
-  slide = pres.addSlide();
-  slide.addText('Fortalezas', { x: 0.5, y: 0.4, fontSize: 22, bold: true, color: '15161A' });
-  const textoFortalezas = plan.fortalezas.length > 0
-    ? plan.fortalezas.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
-    : [{ text: 'No se identificaron dominios en nivel nulo o bajo.' }];
-  slide.addText(textoFortalezas, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
+    // Dominios prioritarios
+    slide = pres.addSlide();
+    slide.addText('Dominios prioritarios · ' + c.nombreCentro, { x: 0.5, y: 0.4, fontSize: 20, bold: true, color: '15161A' });
+    const textoCriticos = c.plan.dominiosPrioritarios.length > 0
+      ? c.plan.dominiosPrioritarios.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
+      : [{ text: 'No se identificaron dominios en nivel alto o muy alto.' }];
+    slide.addText(textoCriticos, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
 
-  pres.writeFile({ fileName: 'reporte-ejecutivo-nom035-' + estado.periodo + '.pptx' });
+    // Fortalezas
+    slide = pres.addSlide();
+    slide.addText('Fortalezas · ' + c.nombreCentro, { x: 0.5, y: 0.4, fontSize: 20, bold: true, color: '15161A' });
+    const textoFortalezas = c.plan.fortalezas.length > 0
+      ? c.plan.fortalezas.map((d) => ({ text: d.nombre + ' — ' + NIVEL_ETIQUETA[d.nivel_riesgo] + '\n', options: { bullet: true, color: '1F2128' } }))
+      : [{ text: 'No se identificaron dominios en nivel nulo o bajo.' }];
+    slide.addText(textoFortalezas, { x: 0.5, y: 1.2, w: 9, fontSize: 14 });
+  });
+
+  const sufijo = centros.length === 1 ? centros[0].centroId : centros.length + 'centros';
+  pres.writeFile({ fileName: 'reporte-ejecutivo-nom035-' + sufijo + '-' + estado.periodo + '.pptx' });
 }
 
 // =======================================================================
-// UI: resumen, wiring, arranque
+// UI: seleccion de centros, resumen, wiring, arranque
 // =======================================================================
 function iconoDoc(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>'; }
 
+function renderListaCentros() {
+  const contenedor = document.getElementById('lista-centros');
+  contenedor.innerHTML = CENTROS_TRABAJO.map((c) => {
+    const guia = guiaPrincipalDeCentro(c.id);
+    const etiquetaGuia = guia === 'guia_2' ? 'Guia II' : 'Guia III';
+    return '<label class="centro-check">' +
+      '<input type="checkbox" value="' + c.id + '" />' +
+      '<span>' + c.nombre + '<span class="pill-guia-mini">' + etiquetaGuia + '</span></span>' +
+      '</label>';
+  }).join('');
+}
+
+function centrosMarcados() {
+  return Array.from(document.querySelectorAll('#lista-centros input[type="checkbox"]:checked')).map((el) => el.value);
+}
+
 function renderResumen() {
-  const r = construirResumenPeriodo(estado.resultados, estado.periodo);
   const contenedor = document.getElementById('resumen-periodo');
+  const centros = centrosSeleccionadosConDatos();
+
+  if (centros.length === 0) {
+    contenedor.innerHTML = '<p style="color:var(--rojo);font-size:13.5px;font-weight:600;">' +
+      (estado.errorCarga || 'No hay resultados disponibles todavía para los centros seleccionados.') + '</p>';
+    return;
+  }
+
+  const totalRespuestas = centros.reduce((acc, c) => acc + c.resumen.totalRespuestas, 0);
+  const filas = centros.map((c) => {
+    const color = colorNivelHex(c.resumen.nivelGlobal);
+    return '<tr>' +
+      '<td>' + c.nombreCentro + '</td>' +
+      '<td>' + c.catalogo.etiqueta + '</td>' +
+      '<td>' + c.resumen.totalRespuestas + '</td>' +
+      '<td>' + c.resumen.puntajeGlobal + '</td>' +
+      '<td><span class="badge-nivel" style="background:' + color + '22;color:' + color + ';">' + c.resumen.etiquetaGlobal + '</span></td>' +
+      '</tr>';
+  }).join('');
+
   contenedor.innerHTML =
-    '<div class="resumen-fila"><span>Periodo</span><span>' + r.periodo + '</span></div>' +
-    '<div class="resumen-fila"><span>Respuestas anonimas</span><span>' + r.totalRespuestas + '</span></div>' +
-    '<div class="resumen-fila"><span>Calificacion global</span><span>' + r.puntajeGlobal + ' (' + r.etiquetaGlobal + ')</span></div>' +
-    '<div class="resumen-fila"><span>Fecha de generacion</span><span>' + r.fechaGeneracion + '</span></div>';
+    '<div class="resumen-fila"><span>Periodo</span><span>' + estado.periodo + '</span></div>' +
+    '<div class="resumen-fila"><span>Centros incluidos</span><span>' + centros.length + '</span></div>' +
+    '<div class="resumen-fila"><span>Respuestas anonimas (total)</span><span>' + totalRespuestas + '</span></div>' +
+    '<table class="tabla-resumen-centros" style="margin-top:12px;"><thead><tr>' +
+    '<th>Centro</th><th>Guia</th><th>Respuestas</th><th>Cfinal</th><th>Nivel</th>' +
+    '</tr></thead><tbody>' + filas + '</tbody></table>';
 }
 
 function mostrarToast(msg) {
@@ -611,50 +832,88 @@ function envolverConToast(fn, mensajeExito) {
   };
 }
 
+function habilitarBotonesReporte(activo) {
+  ['btn-pdf-ejecutivo', 'btn-pdf-tecnico', 'btn-excel', 'btn-word', 'btn-ppt'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !activo;
+  });
+}
+
+async function cargarResultadosDeCentro(centroId) {
+  const guia = guiaPrincipalDeCentro(centroId);
+  const catalogo = catalogoDeGuia(guia);
+
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').style.display = 'inline-block';
+    return { guia, catalogo, resultados: generarResultadosDemo(catalogo) };
+  }
+
+  const resp = await supabaseClient.rpc('obtener_resultados_periodo', {
+    p_periodo: estado.periodo,
+    p_guia: guia,
+    p_centro_trabajo: centroId,
+  });
+  if (resp.error) {
+    console.error('obtener_resultados_periodo (' + centroId + '):', resp.error);
+    estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
+      ? 'Tu sesión no tiene permisos de administrador, o expiró. Entra de nuevo desde la página de inicio.'
+      : 'No se pudieron cargar los resultados de ' + centroId + '. Revisa la consola para más detalle.';
+    return null;
+  }
+  return { guia, catalogo, resultados: resp.data };
+}
+
+async function cargarCentrosSeleccionados() {
+  const marcados = centrosMarcados();
+  estado.errorCarga = null;
+
+  if (marcados.length === 0) {
+    estado.centrosSeleccionados = [];
+    estado.resultadosPorCentro.clear();
+    estado.errorCarga = 'Selecciona al menos un centro de trabajo.';
+    renderResumen();
+    habilitarBotonesReporte(false);
+    return;
+  }
+
+  const btnCargar = document.getElementById('btn-cargar-centros');
+  btnCargar.disabled = true;
+  btnCargar.textContent = 'Cargando…';
+
+  estado.resultadosPorCentro.clear();
+  for (const centroId of marcados) {
+    const entrada = await cargarResultadosDeCentro(centroId);
+    if (entrada) estado.resultadosPorCentro.set(centroId, entrada);
+  }
+  estado.centrosSeleccionados = marcados.filter((id) => estado.resultadosPorCentro.has(id));
+
+  btnCargar.disabled = false;
+  btnCargar.textContent = 'Cargar centros seleccionados';
+
+  renderResumen();
+  habilitarBotonesReporte(estado.centrosSeleccionados.length > 0);
+}
+
 function inicializarEventos() {
   document.getElementById('btn-pdf-ejecutivo').addEventListener('click', envolverConToast(() => generarPDF('ejecutivo'), 'PDF Ejecutivo generado.'));
   document.getElementById('btn-pdf-tecnico').addEventListener('click', envolverConToast(() => generarPDF('tecnico'), 'PDF Tecnico generado.'));
   document.getElementById('btn-excel').addEventListener('click', envolverConToast(() => generarExcel(), 'Excel generado.'));
   document.getElementById('btn-word').addEventListener('click', envolverConToast(() => generarWord(), 'Word generado.'));
   document.getElementById('btn-ppt').addEventListener('click', envolverConToast(() => generarPowerPoint(), 'PowerPoint generado.'));
-}
 
-async function cargarResultados() {
-  if (MODO_DEMO) {
-    document.getElementById('pill-demo').style.display = 'inline-block';
-    estado.resultados = generarResultadosDemo();
-    return;
-  }
-  const resp = await supabaseClient.rpc('obtener_resultados_periodo', { p_periodo: estado.periodo });
-  if (resp.error) {
-    console.error('obtener_resultados_periodo:', resp.error);
-    estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
-      ? 'Tu sesión no tiene permisos de administrador, o expiró. Entra de nuevo desde la página de inicio.'
-      : 'No se pudieron cargar los resultados. Revisa la consola para más detalle.';
-    return;
-  }
-  estado.resultados = resp.data;
-}
-
-function deshabilitarBotonesReporte() {
-  ['btn-pdf-ejecutivo', 'btn-pdf-tecnico', 'btn-excel', 'btn-word', 'btn-ppt'].forEach((id) => {
-    const btn = document.getElementById(id);
-    if (btn) btn.disabled = true;
+  document.getElementById('btn-cargar-centros').addEventListener('click', cargarCentrosSeleccionados);
+  document.getElementById('btn-seleccionar-todos').addEventListener('click', function() {
+    document.querySelectorAll('#lista-centros input[type="checkbox"]').forEach((el) => { el.checked = true; });
+  });
+  document.getElementById('btn-limpiar-seleccion').addEventListener('click', function() {
+    document.querySelectorAll('#lista-centros input[type="checkbox"]').forEach((el) => { el.checked = false; });
   });
 }
 
-async function iniciar() {
-  await cargarResultados();
-  if (!estado.resultados) {
-    document.getElementById('resumen-periodo').innerHTML =
-      '<p style="color:var(--rojo);font-size:13.5px;font-weight:600;">' +
-      (estado.errorCarga || 'No hay resultados disponibles todavía para este periodo.') +
-      '</p>';
-    deshabilitarBotonesReporte();
-    return;
-  }
-  renderResumen();
+function iniciar() {
+  renderListaCentros();
   inicializarEventos();
+  habilitarBotonesReporte(false);
 }
 iniciar();
 </script>

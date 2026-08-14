@@ -18,9 +18,32 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Método no permitido' }), { status: 405 });
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Método no permitido" }),
+      {
+        status: 405,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      }
+    );
   }
 
   let body: { colaborador_id: string };
@@ -43,14 +66,43 @@ serve(async (req) => {
       .maybeSingle();
     if (error) throw error;
     if (!colaborador) {
-      return new Response(JSON.stringify({ error: 'Colaborador no encontrado' }), { status: 404 });
+  return new Response(
+    JSON.stringify({ error: 'Colaborador no encontrado' }),
+    {
+      status: 404,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
     }
-    if (colaborador.status === 'contesto') {
-      return new Response(JSON.stringify({ error: 'Este colaborador ya contestó' }), { status: 409 });
+  );
+}
+
+if (colaborador.status === 'contesto') {
+  return new Response(
+    JSON.stringify({ error: 'Este colaborador ya contestó' }),
+    {
+      status: 409,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
     }
-    if (!colaborador.email) {
-      return new Response(JSON.stringify({ error: 'El colaborador no tiene email registrado' }), { status: 422 });
+  );
+}
+
+if (!colaborador.email) {
+  return new Response(
+    JSON.stringify({ error: 'El colaborador no tiene email registrado' }),
+    {
+      status: 422,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
     }
+  );
+}
 
     // Envío del correo vía Resend (o el proveedor que prefieras).
     const respuestaCorreo = await fetch('https://api.resend.com/emails', {
@@ -83,10 +135,27 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+     headers: {
+  "Content-Type": "application/json",
+  ...corsHeaders,
+}
     });
-  } catch (e) {
-    console.error('send-reminder error:', e);
-    return new Response(JSON.stringify({ error: 'No se pudo enviar el recordatorio' }), { status: 500 });
-  }
+    
+  } catch (e: any) {
+  console.error("send-reminder error:", e);
+
+  return new Response(
+    JSON.stringify({
+      error: e?.message ?? String(e),
+      details: e,
+    }),
+    {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
+    }
+  );
+}
 });

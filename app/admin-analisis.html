@@ -29,8 +29,9 @@
   .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
   .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
   .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
-  select.selector-periodo{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;}
+  select.selector-periodo, select.selector-centro{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;}
   .pill-demo{font-size:11px;font-weight:700;background:var(--medio-bg);color:var(--medio);padding:5px 10px;border-radius:100px;}
+  .pill-guia{font-size:11px;font-weight:700;padding:5px 10px;border-radius:100px;background:var(--gris-100);color:var(--gris-700);white-space:nowrap;}
 
   .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;}
   .panel-titulo{font-size:16px;font-weight:800;margin:0 0 4px;}
@@ -92,8 +93,10 @@
       <span class="brand-mark"></span>
       <span>Riverline<br><small>Admin · NOM-035 · Analisis</small></span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+      <span id="pill-guia" class="pill-guia"></span>
+      <select class="selector-centro" id="selector-centro"></select>
       <select class="selector-periodo" id="selector-periodo"></select>
     </div>
   </header>
@@ -101,7 +104,7 @@
   <div class="grid-2">
     <section class="panel">
       <div class="panel-titulo">Calificacion global (Cfinal)</div>
-      <div class="panel-sub">Nivel de riesgo psicosocial general del centro de trabajo</div>
+      <div class="panel-sub" id="texto-sub-gauge">Nivel de riesgo psicosocial general del centro de trabajo</div>
       <div class="gauge-wrap" id="gauge-global"></div>
     </section>
 
@@ -156,64 +159,156 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 const MINIMO_N_DEPARTAMENTO = 5;
 
-let supabase = null;
+let supabaseClient = null;
 if (!MODO_DEMO) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
 const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
 
-const CATEGORIAS_CATALOGO = [
-  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
-  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
-  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
-  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
-  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
-];
-const DOMINIOS_CATALOGO = [
-  { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
-  { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
-  { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
-  { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
-  { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
-  { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
-  { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
-  { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
-];
-const RANGOS_CATEGORIA = [
-  { categoria_id: 'CAT_AMBIENTE', nivel: 'nulo', limite_superior: 5 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'bajo', limite_superior: 9 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'medio', limite_superior: 11 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'alto', limite_superior: 14 }, { categoria_id: 'CAT_AMBIENTE', nivel: 'muy_alto', limite_superior: null, limite_inferior: 14 },
-  { categoria_id: 'CAT_FACTORES', nivel: 'nulo', limite_superior: 15 }, { categoria_id: 'CAT_FACTORES', nivel: 'bajo', limite_superior: 30 }, { categoria_id: 'CAT_FACTORES', nivel: 'medio', limite_superior: 45 }, { categoria_id: 'CAT_FACTORES', nivel: 'alto', limite_superior: 60 }, { categoria_id: 'CAT_FACTORES', nivel: 'muy_alto', limite_superior: null, limite_inferior: 60 },
-  { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'nulo', limite_superior: 5 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'bajo', limite_superior: 7 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'medio', limite_superior: 10 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'alto', limite_superior: 13 }, { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 13 },
-  { categoria_id: 'CAT_LIDERAZGO', nivel: 'nulo', limite_superior: 14 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'bajo', limite_superior: 29 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'medio', limite_superior: 42 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'alto', limite_superior: 58 }, { categoria_id: 'CAT_LIDERAZGO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 58 },
-  { categoria_id: 'CAT_ENTORNO', nivel: 'nulo', limite_superior: 10 }, { categoria_id: 'CAT_ENTORNO', nivel: 'bajo', limite_superior: 14 }, { categoria_id: 'CAT_ENTORNO', nivel: 'medio', limite_superior: 18 }, { categoria_id: 'CAT_ENTORNO', nivel: 'alto', limite_superior: 23 }, { categoria_id: 'CAT_ENTORNO', nivel: 'muy_alto', limite_superior: null, limite_inferior: 23 },
-];
-const RANGOS_DOMINIO = [
-  { dominio_id: 'DOM_CONDICIONES', nivel: 'muy_alto', limite_inferior: 14 },
-  { dominio_id: 'DOM_CARGA', nivel: 'muy_alto', limite_inferior: 37 },
-  { dominio_id: 'DOM_CONTROL', nivel: 'muy_alto', limite_inferior: 25 },
-  { dominio_id: 'DOM_JORNADA', nivel: 'muy_alto', limite_inferior: 6 },
-  { dominio_id: 'DOM_INTERFERENCIA', nivel: 'muy_alto', limite_inferior: 10 },
-  { dominio_id: 'DOM_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 20 },
-  { dominio_id: 'DOM_RELACIONES', nivel: 'muy_alto', limite_inferior: 21 },
-  { dominio_id: 'DOM_VIOLENCIA', nivel: 'muy_alto', limite_inferior: 16 },
-  { dominio_id: 'DOM_RECONOCIMIENTO', nivel: 'muy_alto', limite_inferior: 18 },
-  { dominio_id: 'DOM_PERTENENCIA', nivel: 'muy_alto', limite_inferior: 10 },
-];
-const RANGO_GLOBAL = [
-  { nivel: 'nulo', limite_superior: 50 }, { nivel: 'bajo', limite_superior: 75 },
-  { nivel: 'medio', limite_superior: 99 }, { nivel: 'alto', limite_superior: 140 },
-  { nivel: 'muy_alto', limite_superior: null, limite_inferior: 140 },
-];
+/* =====================================================================
+   CATALOGOS -- Guia III y Guia II, en paralelo (Guia I NUNCA entra
+   aqui: identifica al colaborador y solo se maneja de forma clinica /
+   individual, nunca en un reporte agregado -- ver 04-centros-trabajo-
+   y-multiguia-schema.sql). Misma forma que catalogo-nom035-guia3.js /
+   catalogo-guia2.js (espejo, sin build): solo se copia lo que esta
+   pantalla necesita (nombres para mostrar + el umbral de "muy_alto"
+   para normalizar barras; el nivel_riesgo real siempre viene del RPC).
+   ===================================================================== */
+
 const ACCIONES_POR_NIVEL = {
   muy_alto: 'Se requiere realizar el analisis de cada categoria y dominio para establecer las acciones de intervencion apropiadas, mediante un Programa de intervencion que debera incluir evaluaciones especificas, y contemplar campanas de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
   alto: 'Se requiere realizar un analisis de cada categoria y dominio, de manera que se puedan determinar las acciones de intervencion apropiadas a traves de un Programa de intervencion, que podra incluir una evaluacion especifica y debera incluir una campana de sensibilizacion, revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion.',
   medio: 'Se requiere revisar la politica de prevencion de riesgos psicosociales y programas para la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral, asi como reforzar su aplicacion y difusion, mediante un Programa de intervencion.',
   bajo: 'Es necesario una mayor difusion de la politica de prevencion de riesgos psicosociales y programas para: la prevencion de los factores de riesgo psicosocial, la promocion de un entorno organizacional favorable y la prevencion de la violencia laboral.',
   nulo: 'El riesgo resulta despreciable por lo que no se requiere medidas adicionales.',
+}; // Texto identico entre Guia II y Guia III (misma Tabla 7 / III.4 de la norma).
+
+const CATALOGO_G3 = {
+  etiqueta: 'Guia III',
+  categorias: [
+    { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+    { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+  ],
+  dominios: [
+    { id: 'DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'CAT_AMBIENTE' },
+    { id: 'DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'CAT_FACTORES' },
+    { id: 'DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'CAT_FACTORES' },
+    { id: 'DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'CAT_ORG_TIEMPO' },
+    { id: 'DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'CAT_ORG_TIEMPO' },
+    { id: 'DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'CAT_LIDERAZGO' },
+    { id: 'DOM_RECONOCIMIENTO', nombre: 'Reconocimiento del desempeno', categoria_id: 'CAT_ENTORNO' },
+    { id: 'DOM_PERTENENCIA', nombre: 'Insuficiente sentido de pertenencia e inestabilidad', categoria_id: 'CAT_ENTORNO' },
+  ],
+  rangosCategoria: [
+    { categoria_id: 'CAT_AMBIENTE', nivel: 'muy_alto', limite_inferior: 14 },
+    { categoria_id: 'CAT_FACTORES', nivel: 'muy_alto', limite_inferior: 60 },
+    { categoria_id: 'CAT_ORG_TIEMPO', nivel: 'muy_alto', limite_inferior: 13 },
+    { categoria_id: 'CAT_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 58 },
+    { categoria_id: 'CAT_ENTORNO', nivel: 'muy_alto', limite_inferior: 23 },
+  ],
+  rangosDominio: [
+    { dominio_id: 'DOM_CONDICIONES', nivel: 'muy_alto', limite_inferior: 14 },
+    { dominio_id: 'DOM_CARGA', nivel: 'muy_alto', limite_inferior: 37 },
+    { dominio_id: 'DOM_CONTROL', nivel: 'muy_alto', limite_inferior: 25 },
+    { dominio_id: 'DOM_JORNADA', nivel: 'muy_alto', limite_inferior: 6 },
+    { dominio_id: 'DOM_INTERFERENCIA', nivel: 'muy_alto', limite_inferior: 10 },
+    { dominio_id: 'DOM_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 20 },
+    { dominio_id: 'DOM_RELACIONES', nivel: 'muy_alto', limite_inferior: 21 },
+    { dominio_id: 'DOM_VIOLENCIA', nivel: 'muy_alto', limite_inferior: 16 },
+    { dominio_id: 'DOM_RECONOCIMIENTO', nivel: 'muy_alto', limite_inferior: 18 },
+    { dominio_id: 'DOM_PERTENENCIA', nivel: 'muy_alto', limite_inferior: 10 },
+  ],
+  rangoGlobal: [
+    { nivel: 'nulo', limite_superior: 50 }, { nivel: 'bajo', limite_superior: 75 },
+    { nivel: 'medio', limite_superior: 99 }, { nivel: 'alto', limite_superior: 140 },
+    { nivel: 'muy_alto', limite_superior: null, limite_inferior: 140 },
+  ],
+  maxGaugeGlobal: 180,
 };
+
+const CATALOGO_G2 = {
+  etiqueta: 'Guia II',
+  categorias: [
+    { id: 'G2_CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'G2_CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'G2_CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'G2_CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  ],
+  dominios: [
+    { id: 'G2_DOM_CONDICIONES', nombre: 'Condiciones en el ambiente de trabajo', categoria_id: 'G2_CAT_AMBIENTE' },
+    { id: 'G2_DOM_CARGA', nombre: 'Carga de trabajo', categoria_id: 'G2_CAT_FACTORES' },
+    { id: 'G2_DOM_CONTROL', nombre: 'Falta de control sobre el trabajo', categoria_id: 'G2_CAT_FACTORES' },
+    { id: 'G2_DOM_JORNADA', nombre: 'Jornada de trabajo', categoria_id: 'G2_CAT_ORG_TIEMPO' },
+    { id: 'G2_DOM_INTERFERENCIA', nombre: 'Interferencia en la relacion trabajo-familia', categoria_id: 'G2_CAT_ORG_TIEMPO' },
+    { id: 'G2_DOM_LIDERAZGO', nombre: 'Liderazgo', categoria_id: 'G2_CAT_LIDERAZGO' },
+    { id: 'G2_DOM_RELACIONES', nombre: 'Relaciones en el trabajo', categoria_id: 'G2_CAT_LIDERAZGO' },
+    { id: 'G2_DOM_VIOLENCIA', nombre: 'Violencia', categoria_id: 'G2_CAT_LIDERAZGO' },
+  ],
+  rangosCategoria: [
+    { categoria_id: 'G2_CAT_AMBIENTE', nivel: 'muy_alto', limite_inferior: 9 },
+    { categoria_id: 'G2_CAT_FACTORES', nivel: 'muy_alto', limite_inferior: 34 },
+    { categoria_id: 'G2_CAT_ORG_TIEMPO', nivel: 'muy_alto', limite_inferior: 8 },
+    { categoria_id: 'G2_CAT_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 38 },
+  ],
+  rangosDominio: [
+    { dominio_id: 'G2_DOM_CONDICIONES', nivel: 'muy_alto', limite_inferior: 9 },
+    { dominio_id: 'G2_DOM_CARGA', nivel: 'muy_alto', limite_inferior: 24 },
+    { dominio_id: 'G2_DOM_CONTROL', nivel: 'muy_alto', limite_inferior: 14 },
+    { dominio_id: 'G2_DOM_JORNADA', nivel: 'muy_alto', limite_inferior: 6 },
+    { dominio_id: 'G2_DOM_INTERFERENCIA', nivel: 'muy_alto', limite_inferior: 6 },
+    { dominio_id: 'G2_DOM_LIDERAZGO', nivel: 'muy_alto', limite_inferior: 11 },
+    { dominio_id: 'G2_DOM_RELACIONES', nivel: 'muy_alto', limite_inferior: 14 },
+    { dominio_id: 'G2_DOM_VIOLENCIA', nivel: 'muy_alto', limite_inferior: 16 },
+  ],
+  rangoGlobal: [
+    { nivel: 'nulo', limite_superior: 20 }, { nivel: 'bajo', limite_superior: 45 },
+    { nivel: 'medio', limite_superior: 70 }, { nivel: 'alto', limite_superior: 90 },
+    { nivel: 'muy_alto', limite_superior: null, limite_inferior: 90 },
+  ],
+  maxGaugeGlobal: 120,
+};
+
+/* -----------------------------------------------------------------
+   Centros de trabajo -- misma lista y misma regla de "guia principal"
+   que admin-seguimiento.html (un centro puede combinar Guia III/II
+   con Guia I, pero nunca II y III a la vez: por eso "principal" basta
+   para decidir que catalogo usar aqui).
+   ----------------------------------------------------------------- */
+const CENTROS_TRABAJO = [
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
+  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_3'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_3'] },
+  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_3'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+];
+const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
+
+function guiaPrincipalDeCentro(centroId) {
+  const centro = CENTRO_POR_ID.get(centroId);
+  if (!centro) return 'guia_3';
+  return centro.guias_activas.indexOf('guia_2') !== -1 ? 'guia_2' : 'guia_3';
+}
+
+function catalogoActivo() {
+  return estado.guiaActiva === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3;
+}
 
 function determinarNivelPorLimite(valor, rangos) {
   const orden = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
@@ -301,34 +396,40 @@ function construirHeatmap(datosPorDepartamento, minimoN) {
 }
 
 function generarResultadosDemo() {
-  const porDominio = [
-    { dominio_id: 'DOM_CONDICIONES', puntaje: 6, nivel_riesgo: 'bajo' },
-    { dominio_id: 'DOM_CARGA', puntaje: 30, nivel_riesgo: 'alto' },
-    { dominio_id: 'DOM_CONTROL', puntaje: 12, nivel_riesgo: 'bajo' },
-    { dominio_id: 'DOM_JORNADA', puntaje: 5, nivel_riesgo: 'muy_alto' },
-    { dominio_id: 'DOM_INTERFERENCIA', puntaje: 5, nivel_riesgo: 'medio' },
-    { dominio_id: 'DOM_LIDERAZGO', puntaje: 8, nivel_riesgo: 'bajo' },
-    { dominio_id: 'DOM_RELACIONES', puntaje: 9, nivel_riesgo: 'bajo' },
-    { dominio_id: 'DOM_VIOLENCIA', puntaje: 18, nivel_riesgo: 'muy_alto' },
-    { dominio_id: 'DOM_RECONOCIMIENTO', puntaje: 15, nivel_riesgo: 'alto' },
-    { dominio_id: 'DOM_PERTENENCIA', puntaje: 3, nivel_riesgo: 'bajo' },
-  ];
-  const porCategoria = [
-    { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
-    { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
-    { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
-    { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
-    { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
-  ];
-  const global = { puntaje: 111, nivel_riesgo: 'alto' };
+  const cat = catalogoActivo();
+  // Puntajes de ejemplo expresados como % del umbral "muy_alto" de cada
+  // dominio/categoria (mismo patron narrativo para ambas guias, para que
+  // el demo se vea coherente sin importar cual este activa).
+  const patronDominio = [0.45, 0.85, 0.5, 0.9, 0.5, 0.42, 0.43, 1.15, 0.85, 0.3];
+  const porDominio = cat.dominios.map((d, i) => {
+    const rango = cat.rangosDominio.find((r) => r.dominio_id === d.id);
+    const limite = rango ? rango.limite_inferior : 10;
+    const puntaje = Math.max(0, Math.round(limite * patronDominio[i % patronDominio.length]));
+    return { dominio_id: d.id, puntaje, nivel_riesgo: determinarNivelPorLimite(puntaje, [{ nivel: 'nulo', limite_superior: limite * 0.36 }, { nivel: 'bajo', limite_superior: limite * 0.64 }, { nivel: 'medio', limite_superior: limite * 0.79 }, { nivel: 'alto', limite_superior: limite }, { nivel: 'muy_alto', limite_superior: null }]) };
+  });
+
+  const dominioPorCategoria = new Map();
+  porDominio.forEach((pd) => {
+    const categoriaId = cat.dominios.find((d) => d.id === pd.dominio_id).categoria_id;
+    dominioPorCategoria.set(categoriaId, (dominioPorCategoria.get(categoriaId) || 0) + pd.puntaje);
+  });
+  const porCategoria = cat.categorias.map((c) => {
+    const puntaje = dominioPorCategoria.get(c.id) || 0;
+    const rango = cat.rangosCategoria.find((r) => r.categoria_id === c.id);
+    const limite = rango ? rango.limite_inferior : puntaje || 1;
+    return { categoria_id: c.id, puntaje, nivel_riesgo: determinarNivelPorLimite(puntaje, [{ nivel: 'nulo', limite_superior: limite * 0.36 }, { nivel: 'bajo', limite_superior: limite * 0.64 }, { nivel: 'medio', limite_superior: limite * 0.79 }, { nivel: 'alto', limite_superior: limite }, { nivel: 'muy_alto', limite_superior: null }]) };
+  });
+
+  const puntajeGlobal = porCategoria.reduce((acc, c) => acc + c.puntaje, 0);
+  const global = { puntaje: puntajeGlobal, nivel_riesgo: determinarNivelPorLimite(puntajeGlobal, cat.rangoGlobal) };
 
   const departamentos = ['Produccion', 'Calidad', 'Logistica', 'Ventas', 'Administracion'];
   const nivelesEjemplo = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
   const porDepartamento = departamentos.map((dep, i) => ({
     departamento: dep,
     n: i === 3 ? 2 : 6 + i * 3,
-    celdas: CATEGORIAS_CATALOGO.map((cat, j) => ({
-      categoria_id: cat.id,
+    celdas: cat.categorias.map((c, j) => ({
+      categoria_id: c.id,
       nivel_riesgo: nivelesEjemplo[(i + j) % nivelesEjemplo.length],
     })),
   }));
@@ -336,7 +437,7 @@ function generarResultadosDemo() {
   return { global: global, porCategoria: porCategoria, porDominio: porDominio, porDepartamento: porDepartamento };
 }
 
-const estado = { resultados: null };
+const estado = { resultados: null, centroActivo: null, guiaActiva: 'guia_3' };
 window.estado = estado;
 
 function colorNivel(nivel) {
@@ -344,14 +445,15 @@ function colorNivel(nivel) {
 }
 
 function renderGauge(global) {
+  const cat = catalogoActivo();
   const contenedor = document.getElementById('gauge-global');
-  const max = 180;
+  const max = cat.maxGaugeGlobal;
   const pct = Math.min(1, global.puntaje / max);
   const angulo = -90 + pct * 180;
   const color = colorNivel(global.nivel_riesgo);
 
-  const zonas = RANGO_GLOBAL.map((r, i) => {
-    const desde = i === 0 ? 0 : RANGO_GLOBAL[i - 1].limite_superior;
+  const zonas = cat.rangoGlobal.map((r, i) => {
+    const desde = i === 0 ? 0 : cat.rangoGlobal[i - 1].limite_superior;
     const hasta = r.limite_superior == null ? max : r.limite_superior;
     return { nivel: r.nivel, desde: Math.min(desde, max), hasta: Math.min(hasta, max) };
   });
@@ -379,7 +481,7 @@ function renderGauge(global) {
     '<circle cx="100" cy="100" r="6" fill="' + color + '"/></svg>' +
     '<div class="gauge-cifra">' + global.puntaje + '</div>' +
     '<div class="gauge-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[global.nivel_riesgo] + '</div>' +
-    '<div class="gauge-detalle">Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la Guia III.</div>';
+    '<div class="gauge-detalle">Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la ' + cat.etiqueta + '.</div>';
 }
 
 let chartRadarInstancia = null;
@@ -411,7 +513,7 @@ function renderRadar(datosRadar) {
 
 function renderRanking(ranking) {
   const contenedor = document.getElementById('lista-ranking');
-  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
+  const nombreCategoria = new Map(catalogoActivo().categorias.map(function(c){ return [c.id, c.nombre]; }));
   contenedor.innerHTML = ranking.map(function(d, i) {
     const color = colorNivel(d.nivel_riesgo);
     const anchoBarra = Math.min(100, d.porcentaje);
@@ -430,7 +532,7 @@ function renderRanking(ranking) {
 function renderHeatmap(heatmap) {
   document.getElementById('texto-minimo-n').textContent = MINIMO_N_DEPARTAMENTO;
   const contenedor = document.getElementById('contenedor-heatmap');
-  const encabezados = CATEGORIAS_CATALOGO.map(function(c) {
+  const encabezados = catalogoActivo().categorias.map(function(c) {
     return '<th>' + (c.nombre.length > 22 ? c.nombre.slice(0, 20) + '\u2026' : c.nombre) + '</th>';
   }).join('');
   const filas = heatmap.map(function(fila) {
@@ -446,7 +548,7 @@ function renderHeatmap(heatmap) {
 
 function renderPlan(plan) {
   const contenedor = document.getElementById('contenedor-plan');
-  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
+  const nombreCategoria = new Map(catalogoActivo().categorias.map(function(c){ return [c.id, c.nombre]; }));
 
   const listaCriticos = plan.dominiosPrioritarios.length > 0
     ? '<ul class="lista-plan">' + plan.dominiosPrioritarios.map(function(d) {
@@ -474,10 +576,22 @@ function renderPlan(plan) {
     '<div class="plan-bloque"><h3>Fortalezas</h3>' + listaFortalezas + '</div>';
 }
 
+function actualizarPillGuia() {
+  const cat = catalogoActivo();
+  const pill = document.getElementById('pill-guia');
+  pill.textContent = cat.etiqueta;
+  const centro = CENTRO_POR_ID.get(estado.centroActivo);
+  document.getElementById('texto-sub-gauge').textContent =
+    'Nivel de riesgo psicosocial general de ' + (centro ? centro.nombre : 'este centro de trabajo') +
+    ' (' + cat.etiqueta + ')';
+}
+
 function renderTodo() {
+  const cat = catalogoActivo();
   const r = estado.resultados;
-  const rankingDominios = prepararRankingDominios(r.porDominio, RANGOS_DOMINIO, DOMINIOS_CATALOGO);
-  const categoriasEnriquecidas = prepararDatosRadar(r.porCategoria, RANGOS_CATEGORIA, CATEGORIAS_CATALOGO);
+  actualizarPillGuia();
+  const rankingDominios = prepararRankingDominios(r.porDominio, cat.rangosDominio, cat.dominios);
+  const categoriasEnriquecidas = prepararDatosRadar(r.porCategoria, cat.rangosCategoria, cat.categorias);
   const heatmap = construirHeatmap(r.porDepartamento, MINIMO_N_DEPARTAMENTO);
   const plan = generarPlanDeAccion({
     global: r.global,
@@ -504,7 +618,11 @@ async function cargarResultados(periodo) {
     estado.resultados = generarResultadosDemo();
     return;
   }
-  const resp = await supabase.rpc('obtener_resultados_periodo', { p_periodo: periodo });
+  const resp = await supabaseClient.rpc('obtener_resultados_periodo', {
+    p_periodo: periodo,
+    p_guia: estado.guiaActiva,
+    p_centro_trabajo: estado.centroActivo,
+  });
   if (resp.error) { console.error(resp.error); return; }
   estado.resultados = resp.data;
 }
@@ -519,7 +637,28 @@ function inicializarSelectorPeriodo() {
   });
 }
 
+function inicializarSelectorCentro() {
+  const sel = document.getElementById('selector-centro');
+  // Guia I nunca entra a este dashboard (identifica al colaborador y
+  // se maneja de forma clinica) -- todos los centros siempre tienen
+  // una guia principal II o III, asi que todos aparecen aqui.
+  CENTROS_TRABAJO.forEach(function(c) {
+    sel.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.nombre + '</option>');
+  });
+  estado.centroActivo = CENTROS_TRABAJO[0].id;
+  estado.guiaActiva = guiaPrincipalDeCentro(estado.centroActivo);
+  sel.value = estado.centroActivo;
+
+  sel.addEventListener('change', async function() {
+    estado.centroActivo = sel.value;
+    estado.guiaActiva = guiaPrincipalDeCentro(estado.centroActivo);
+    await cargarResultados(document.getElementById('selector-periodo').value);
+    renderTodo();
+  });
+}
+
 async function iniciar() {
+  inicializarSelectorCentro();
   inicializarSelectorPeriodo();
   await cargarResultados(document.getElementById('selector-periodo').value);
   renderTodo();

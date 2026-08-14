@@ -27,6 +27,8 @@
   .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
   .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
   .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:#c99a2e;padding:5px 10px;border-radius:100px;}
+  .pill-guia{font-size:11px;font-weight:700;padding:5px 10px;border-radius:100px;background:var(--gris-100);color:var(--gris-700);white-space:nowrap;}
+  select.selector-centro{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;}
 
   .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;}
   .panel-titulo{font-size:16px;font-weight:800;margin:0 0 4px;}
@@ -70,12 +72,16 @@
       <span class="brand-mark"></span>
       <span>Riverline<br><small>Admin · NOM-035 · Historico</small></span>
     </div>
-    <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+      <span id="pill-guia" class="pill-guia"></span>
+      <select class="selector-centro" id="selector-centro"></select>
+    </div>
   </header>
 
   <section class="panel">
     <div class="panel-titulo">Tendencia de la calificacion global</div>
-    <div class="panel-sub">Evolucion de Cfinal a traves de las aplicaciones registradas</div>
+    <div class="panel-sub" id="texto-sub-tendencia">Evolucion de Cfinal a traves de las aplicaciones registradas</div>
     <div class="kpi-tendencia" id="kpi-tendencia"></div>
     <canvas id="chart-linea" height="220"></canvas>
   </section>
@@ -119,20 +125,64 @@ const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 
-let supabase = null;
+let supabaseClient = null;
 if (!MODO_DEMO) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 const NIVEL_ORDEN = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
 const NIVEL_ETIQUETA = { nulo: 'Nulo', bajo: 'Bajo', medio: 'Medio', alto: 'Alto', muy_alto: 'Muy alto' };
-const CATEGORIAS_CATALOGO = [
-  { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
-  { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
-  { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
-  { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
-  { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+
+/* Guia I NUNCA entra aqui: identifica al colaborador y se maneja de
+   forma clinica/individual, nunca en un historico agregado -- mismo
+   criterio que admin-analisis.html y admin-reportes.html. */
+const CATALOGO_G3 = {
+  etiqueta: 'Guia III',
+  categorias: [
+    { id: 'CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+    { id: 'CAT_ENTORNO', nombre: 'Entorno organizacional' },
+  ],
+};
+const CATALOGO_G2 = {
+  etiqueta: 'Guia II',
+  categorias: [
+    { id: 'G2_CAT_AMBIENTE', nombre: 'Ambiente de trabajo' },
+    { id: 'G2_CAT_FACTORES', nombre: 'Factores propios de la actividad' },
+    { id: 'G2_CAT_ORG_TIEMPO', nombre: 'Organizacion del tiempo de trabajo' },
+    { id: 'G2_CAT_LIDERAZGO', nombre: 'Liderazgo y relaciones en el trabajo' },
+  ],
+};
+
+const CENTROS_TRABAJO = [
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
+  { id: 'QUERETARO', nombre: 'Queretaro', guias_activas: ['guia_3'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosi', guias_activas: ['guia_3'] },
+  { id: 'LEON', nombre: 'Leon', guias_activas: ['guia_3'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
 ];
+const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
+
+function guiaPrincipalDeCentro(centroId) {
+  const centro = CENTRO_POR_ID.get(centroId);
+  if (!centro) return 'guia_3';
+  return centro.guias_activas.indexOf('guia_2') !== -1 ? 'guia_2' : 'guia_3';
+}
+function catalogoActivo() {
+  return estado.guiaActiva === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3;
+}
 
 function colorNivel(nivel) {
   return { nulo: '#1f8a4c', bajo: '#6fae4a', medio: '#c99a2e', alto: '#e2711d', muy_alto: '#e50d2e' }[nivel] || '#888';
@@ -174,13 +224,13 @@ function calcularTendenciaGlobal(historico) {
   };
 }
 
-function compararPeriodos(historico, periodoAId, periodoBId) {
+function compararPeriodos(historico, periodoAId, periodoBId, catalogo) {
   const aplicacionA = historico.find(function(h){ return h.periodo === periodoAId; });
   const aplicacionB = historico.find(function(h){ return h.periodo === periodoBId; });
   if (!aplicacionA || !aplicacionB) return null;
 
-  const nombreCategoria = new Map(CATEGORIAS_CATALOGO.map(function(c){ return [c.id, c.nombre]; }));
-  const categoriasComparadas = CATEGORIAS_CATALOGO.map(function(cat) {
+  const nombreCategoria = new Map(catalogo.categorias.map(function(c){ return [c.id, c.nombre]; }));
+  const categoriasComparadas = catalogo.categorias.map(function(cat) {
     const catA = aplicacionA.porCategoria.find(function(c){ return c.categoria_id === cat.id; });
     const catB = aplicacionB.porCategoria.find(function(c){ return c.categoria_id === cat.id; });
     if (!catA || !catB) return null;
@@ -211,69 +261,52 @@ function compararPeriodos(historico, periodoAId, periodoBId) {
 }
 
 // =======================================================================
-// DATOS DEMO (el periodo mas reciente coincide con Modulos 6 y 7)
+// DATOS DEMO -- serie de 5 periodos con una tendencia de mejora leve,
+// coherente para cualquier catalogo activo (mismo patron por % del
+// umbral "muy_alto" que admin-analisis.html / admin-reportes.html).
 // =======================================================================
-function generarHistoricoDemo() {
-  return [
-    {
-      periodo: '2025-Q3', fecha: '2025-09-15', totalRespuestas: 38,
-      global: { puntaje: 132, nivel_riesgo: 'muy_alto' },
-      porCategoria: [
-        { categoria_id: 'CAT_AMBIENTE', puntaje: 9, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_FACTORES', puntaje: 50, nivel_riesgo: 'alto' },
-        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 12, nivel_riesgo: 'muy_alto' },
-        { categoria_id: 'CAT_LIDERAZGO', puntaje: 44, nivel_riesgo: 'alto' },
-        { categoria_id: 'CAT_ENTORNO', puntaje: 21, nivel_riesgo: 'alto' },
-      ],
-    },
-    {
-      periodo: '2025-Q4', fecha: '2025-12-10', totalRespuestas: 40,
-      global: { puntaje: 125, nivel_riesgo: 'alto' },
-      porCategoria: [
-        { categoria_id: 'CAT_AMBIENTE', puntaje: 8, nivel_riesgo: 'bajo' },
-        { categoria_id: 'CAT_FACTORES', puntaje: 47, nivel_riesgo: 'alto' },
-        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 11, nivel_riesgo: 'muy_alto' },
-        { categoria_id: 'CAT_LIDERAZGO', puntaje: 40, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ENTORNO', puntaje: 20, nivel_riesgo: 'alto' },
-      ],
-    },
-    {
-      periodo: '2026-Q1', fecha: '2026-03-12', totalRespuestas: 39,
-      global: { puntaje: 118, nivel_riesgo: 'alto' },
-      porCategoria: [
-        { categoria_id: 'CAT_AMBIENTE', puntaje: 7, nivel_riesgo: 'bajo' },
-        { categoria_id: 'CAT_FACTORES', puntaje: 45, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 11, nivel_riesgo: 'muy_alto' },
-        { categoria_id: 'CAT_LIDERAZGO', puntaje: 37, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
-      ],
-    },
-    {
-      periodo: '2026-Q2', fecha: '2026-06-18', totalRespuestas: 42,
-      global: { puntaje: 115, nivel_riesgo: 'alto' },
-      porCategoria: [
-        { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
-        { categoria_id: 'CAT_FACTORES', puntaje: 43, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
-        { categoria_id: 'CAT_LIDERAZGO', puntaje: 36, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
-      ],
-    },
-    {
-      periodo: '2026-Q3', fecha: '2026-09-14', totalRespuestas: 41,
-      global: { puntaje: 111, nivel_riesgo: 'alto' },
-      porCategoria: [
-        { categoria_id: 'CAT_AMBIENTE', puntaje: 6, nivel_riesgo: 'bajo' },
-        { categoria_id: 'CAT_FACTORES', puntaje: 42, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ORG_TIEMPO', puntaje: 10, nivel_riesgo: 'muy_alto' },
-        { categoria_id: 'CAT_LIDERAZGO', puntaje: 35, nivel_riesgo: 'medio' },
-        { categoria_id: 'CAT_ENTORNO', puntaje: 18, nivel_riesgo: 'alto' },
-      ],
-    },
-  ];
+const RANGOS_CATEGORIA_MUYALTO = {
+  CAT_AMBIENTE: 14, CAT_FACTORES: 60, CAT_ORG_TIEMPO: 13, CAT_LIDERAZGO: 58, CAT_ENTORNO: 23,
+  G2_CAT_AMBIENTE: 9, G2_CAT_FACTORES: 34, G2_CAT_ORG_TIEMPO: 8, G2_CAT_LIDERAZGO: 38,
+};
+const RANGO_GLOBAL_POR_GUIA = {
+  guia_3: [{ nivel: 'nulo', limite_superior: 50 }, { nivel: 'bajo', limite_superior: 75 }, { nivel: 'medio', limite_superior: 99 }, { nivel: 'alto', limite_superior: 140 }, { nivel: 'muy_alto', limite_superior: null }],
+  guia_2: [{ nivel: 'nulo', limite_superior: 20 }, { nivel: 'bajo', limite_superior: 45 }, { nivel: 'medio', limite_superior: 70 }, { nivel: 'alto', limite_superior: 90 }, { nivel: 'muy_alto', limite_superior: null }],
+};
+function nivelPorRango(puntaje, rango) {
+  for (const r of rango) { if (r.limite_superior == null || puntaje < r.limite_superior) return r.nivel; }
+  return 'muy_alto';
 }
 
-const estado = { historico: [] };
+function generarHistoricoDemo(catalogo, guia) {
+  const periodos = [
+    { periodo: '2025-Q3', fecha: '2025-09-15', factor: 1.18 },
+    { periodo: '2025-Q4', fecha: '2025-12-10', factor: 1.12 },
+    { periodo: '2026-Q1', fecha: '2026-03-12', factor: 1.06 },
+    { periodo: '2026-Q2', fecha: '2026-06-18', factor: 1.03 },
+    { periodo: '2026-Q3', fecha: '2026-09-14', factor: 1.0 },
+  ];
+  const patronCategoria = [0.42, 0.7, 0.77, 0.6]; // % del umbral muy_alto, ciclico por categoria
+  const rangoGlobal = RANGO_GLOBAL_POR_GUIA[guia];
+
+  return periodos.map(function(p) {
+    const porCategoria = catalogo.categorias.map(function(cat, i) {
+      const limite = RANGOS_CATEGORIA_MUYALTO[cat.id] || 20;
+      const puntaje = Math.max(0, Math.round(limite * patronCategoria[i % patronCategoria.length] * p.factor));
+      return { categoria_id: cat.id, puntaje: puntaje, nivel_riesgo: nivelPorRango(puntaje, [{ nivel: 'nulo', limite_superior: limite * 0.36 }, { nivel: 'bajo', limite_superior: limite * 0.64 }, { nivel: 'medio', limite_superior: limite * 0.79 }, { nivel: 'alto', limite_superior: limite }, { nivel: 'muy_alto', limite_superior: null }]) };
+    });
+    const puntajeGlobal = porCategoria.reduce(function(acc, c){ return acc + c.puntaje; }, 0);
+    return {
+      periodo: p.periodo,
+      fecha: p.fecha,
+      totalRespuestas: 38 + Math.round(Math.random() * 4),
+      global: { puntaje: puntajeGlobal, nivel_riesgo: nivelPorRango(puntajeGlobal, rangoGlobal) },
+      porCategoria: porCategoria,
+    };
+  });
+}
+
+const estado = { historico: [], centroActivo: null, guiaActiva: 'guia_3' };
 window.estado = estado;
 
 // =======================================================================
@@ -337,7 +370,7 @@ function renderSelectoresPeriodo() {
 function renderComparativo() {
   const periodoA = document.getElementById('selector-periodo-a').value;
   const periodoB = document.getElementById('selector-periodo-b').value;
-  const comparativo = compararPeriodos(estado.historico, periodoA, periodoB);
+  const comparativo = compararPeriodos(estado.historico, periodoA, periodoB, catalogoActivo());
   const contenedor = document.getElementById('contenedor-comparativo');
 
   if (!comparativo) {
@@ -384,7 +417,23 @@ function renderTablaAplicaciones() {
     '<table class="tabla-aplicaciones"><thead><tr><th>Periodo</th><th>Fecha</th><th>Respuestas</th><th>Cfinal</th><th>Nivel</th></tr></thead><tbody>' + filas + '</tbody></table>';
 }
 
+function actualizarPillGuia() {
+  const cat = catalogoActivo();
+  document.getElementById('pill-guia').textContent = cat.etiqueta;
+  const centro = CENTRO_POR_ID.get(estado.centroActivo);
+  document.getElementById('texto-sub-tendencia').textContent =
+    'Evolucion de Cfinal de ' + (centro ? centro.nombre : 'este centro') + ' a traves de las aplicaciones registradas (' + cat.etiqueta + ')';
+}
+
 function renderTodo() {
+  actualizarPillGuia();
+  if (estado.historico.length === 0) {
+    document.getElementById('kpi-tendencia').innerHTML = '<span style="color:var(--rojo);font-size:13px;font-weight:600;">' + (estado.errorCarga || 'No hay aplicaciones registradas todavía para este centro.') + '</span>';
+    document.getElementById('contenedor-comparativo').innerHTML = '';
+    document.getElementById('contenedor-aplicaciones').innerHTML = '';
+    if (chartLineaInstancia) { chartLineaInstancia.destroy(); chartLineaInstancia = null; }
+    return;
+  }
   renderTendenciaGlobal();
   renderLinea();
   renderSelectoresPeriodo();
@@ -397,18 +446,49 @@ function inicializarEventos() {
   document.getElementById('selector-periodo-b').addEventListener('change', renderComparativo);
 }
 
+function inicializarSelectorCentro() {
+  const sel = document.getElementById('selector-centro');
+  CENTROS_TRABAJO.forEach(function(c) {
+    sel.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.nombre + '</option>');
+  });
+  estado.centroActivo = CENTROS_TRABAJO[0].id;
+  estado.guiaActiva = guiaPrincipalDeCentro(estado.centroActivo);
+  sel.value = estado.centroActivo;
+
+  sel.addEventListener('change', async function() {
+    estado.centroActivo = sel.value;
+    estado.guiaActiva = guiaPrincipalDeCentro(estado.centroActivo);
+    await cargarHistorico();
+    renderTodo();
+  });
+}
+
 async function cargarHistorico() {
+  estado.errorCarga = null;
+  const catalogo = catalogoActivo();
+
   if (MODO_DEMO) {
     document.getElementById('pill-demo').style.display = 'inline-block';
-    estado.historico = generarHistoricoDemo();
+    estado.historico = generarHistoricoDemo(catalogo, estado.guiaActiva);
     return;
   }
-  const resp = await supabase.rpc('obtener_historico_aplicaciones');
-  if (resp.error) { console.error(resp.error); return; }
+  const resp = await supabaseClient.rpc('obtener_historico_aplicaciones', {
+    p_guia: estado.guiaActiva,
+    p_centro_trabajo: estado.centroActivo,
+  });
+  if (resp.error) {
+    console.error(resp.error);
+    estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
+      ? 'Tu sesión no tiene permisos de administrador, o expiró. Entra de nuevo desde la página de inicio.'
+      : 'No se pudo cargar el historico. Revisa la consola para más detalle.';
+    estado.historico = [];
+    return;
+  }
   estado.historico = resp.data || [];
 }
 
 async function iniciar() {
+  inicializarSelectorCentro();
   await cargarHistorico();
   renderTodo();
   inicializarEventos();

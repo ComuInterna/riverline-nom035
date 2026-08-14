@@ -74,6 +74,43 @@ async function correr() {
   await esperar(20);
 
   // ---------------------------------------------------------------
+  // 2b) Filtro por centro de trabajo
+  // ---------------------------------------------------------------
+  const selCentro = doc.getElementById('filtro-centro');
+  const opcionesCentro = [...selCentro.options].map((o) => o.value).filter(Boolean);
+  assert(opcionesCentro.length === 15, `15 centros de trabajo en el filtro (obtuvo ${opcionesCentro.length})`);
+  assert(opcionesCentro.includes('CHAPULTEPEC') && opcionesCentro.includes('FORO_4'), 'El filtro incluye los centros reales (Chapultepec, Foro 4, etc.)');
+
+  selCentro.value = 'CHAPULTEPEC';
+  selCentro.dispatchEvent(new window.Event('change'));
+  await esperar(20);
+  const filasChapultepec = doc.querySelectorAll('table.tabla-seguimiento tbody tr');
+  const esperadasChapultepec = window.estado.colaboradores.filter((c) => c.centro_trabajo === 'CHAPULTEPEC').length;
+  assert(filasChapultepec.length === esperadasChapultepec, `Filtro "Chapultepec": ${filasChapultepec.length} filas (esperado ${esperadasChapultepec})`);
+  assert([...filasChapultepec].every((tr) => tr.textContent.includes('Chapultepec')), 'Todas las filas visibles muestran "Chapultepec" como centro');
+  selCentro.value = '';
+  selCentro.dispatchEvent(new window.Event('change'));
+  await esperar(20);
+
+  // ---------------------------------------------------------------
+  // 2c) Badges de guía(s) reflejan el centro correcto: Chapultepec usa
+  //     Guía III + Guía I combinadas; Foro 4 usa solo Guía II.
+  // ---------------------------------------------------------------
+  const colaboradorChapultepec = window.estado.colaboradores.find((c) => c.centro_trabajo === 'CHAPULTEPEC');
+  assert(colaboradorChapultepec.status !== null && colaboradorChapultepec.status_guia1 !== null,
+    'Colaborador de Chapultepec tiene status de Guía III Y de Guía I (centro combinado)');
+  assert(colaboradorChapultepec.status_guia2 === null, 'Colaborador de Chapultepec NO tiene Guía II (no aplica ahí)');
+
+  const colaboradorForo4 = window.estado.colaboradores.find((c) => c.centro_trabajo === 'FORO_4');
+  assert(colaboradorForo4.status === null && colaboradorForo4.status_guia1 === null && colaboradorForo4.status_guia2 !== null,
+    'Colaborador de Foro 4 SOLO tiene status de Guía II (Guía III y I no le aplican)');
+
+  const filaChapultepecHTML = doc.querySelector(`tr[data-id="${colaboradorChapultepec.id}"]`).innerHTML;
+  assert(filaChapultepecHTML.includes('G3:') && filaChapultepecHTML.includes('G1:'), 'La fila de un colaborador de Chapultepec muestra badges de G3 y G1');
+  const filaForo4HTML = doc.querySelector(`tr[data-id="${colaboradorForo4.id}"]`).innerHTML;
+  assert(filaForo4HTML.includes('G2:') && !filaForo4HTML.includes('G1:'), 'La fila de un colaborador de Foro 4 muestra badge G2 y NO badge G1');
+
+  // ---------------------------------------------------------------
   // 3) Búsqueda por nombre
   // ---------------------------------------------------------------
   const inputBusqueda = doc.getElementById('filtro-busqueda');
@@ -107,18 +144,19 @@ async function correr() {
   assert(JSON.stringify(nombresAscDeNuevo) === JSON.stringify(ascEsperado), 'Segundo click regresa a orden ascendente');
 
   // ---------------------------------------------------------------
-  // 5) Recordatorio individual (demo) incrementa contador y deshabilita si "contesto"
+  // 5) Recordatorio individual (demo) incrementa contador y deshabilita
+  //    solo cuando NO le queda ninguna guía aplicable pendiente
   // ---------------------------------------------------------------
-  const colaboradorPendiente = window.estado.colaboradores.find((c) => c.status !== 'contesto');
+  const colaboradorPendiente = window.estado.colaboradores.find((c) => window.tienePendientes(c));
   const filaPendiente = doc.querySelector(`tr[data-id="${colaboradorPendiente.id}"] [data-accion="recordatorio"]`);
-  assert(filaPendiente && !filaPendiente.disabled, 'Botón de recordatorio habilitado para colaborador pendiente');
+  assert(filaPendiente && !filaPendiente.disabled, 'Botón de recordatorio habilitado para colaborador con alguna guía pendiente');
   filaPendiente.click();
   await esperar(20);
   assert(colaboradorPendiente.recordatorios_enviados === 1, 'Recordatorio incrementa el contador en modo demo');
 
-  const colaboradorContesto = window.estado.colaboradores.find((c) => c.status === 'contesto');
-  const filaContesto = doc.querySelector(`tr[data-id="${colaboradorContesto.id}"] [data-accion="recordatorio"]`);
-  assert(filaContesto && filaContesto.disabled, 'Botón de recordatorio deshabilitado para colaborador que ya contestó');
+  const colaboradorSinPendientes = window.estado.colaboradores.find((c) => !window.tienePendientes(c));
+  const filaSinPendientes = doc.querySelector(`tr[data-id="${colaboradorSinPendientes.id}"] [data-accion="recordatorio"]`);
+  assert(filaSinPendientes && filaSinPendientes.disabled, 'Botón de recordatorio deshabilitado cuando ninguna guía aplicable está pendiente');
 
   // ---------------------------------------------------------------
   // 6) Exportación: función pura genera CSV correcto
@@ -134,28 +172,40 @@ async function correr() {
   assert(csvEspecial.includes('"García, Ana"'), 'CSV escapa correctamente valores con coma');
 
   // ---------------------------------------------------------------
-  // 7) Importación: parseo real de un archivo Excel generado con SheetJS
+  // 7) Importación: parseo real, ahora con "Centro de Trabajo" obligatorio
   // ---------------------------------------------------------------
   const filasCrudas = [
-    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', email: 'p1@riverline.mx' },
-    { Nombre: 'Prueba Import Dos', Puesto: 'Operador', Departamento: 'Producción', Email: 'p2@riverline.mx' }, // encabezados con mayúscula/acento
-    { nombre: '', puesto: 'Sin depto', departamento: '', email: 'malo@riverline.mx' }, // fila inválida (sin nombre ni depto)
+    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Toluca', email: 'p1@riverline.mx' },
+    { Nombre: 'Prueba Import Dos', Puesto: 'Operador', Departamento: 'Producción', 'Centro de Trabajo': 'chapultepec', Email: 'p2@riverline.mx' }, // encabezados con mayúscula/acento, centro en minúsculas
+    { nombre: 'Prueba Import Tres', puesto: 'Analista', departamento: 'Ventas', 'centro de trabajo': 'Foro 4', email: 'p3@riverline.mx' }, // centro con guia_2
+    { nombre: '', puesto: 'Sin depto', departamento: '', 'centro de trabajo': 'Toluca', email: 'malo@riverline.mx' }, // fila inválida (sin nombre ni depto)
+    { nombre: 'Prueba Sin Centro', puesto: 'Analista', departamento: 'Calidad', email: 'sincentro@riverline.mx' }, // sin centro de trabajo
+    { nombre: 'Prueba Centro Falso', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Ciudad Inventada', email: 'falso@riverline.mx' }, // centro no reconocido
   ];
   const resultadoImport = window.normalizarFilasImportadas(filasCrudas, 2000);
-  assert(resultadoImport.validas.length === 2, `normalizarFilasImportadas: 2 filas válidas (obtuvo ${resultadoImport.validas.length})`);
-  assert(resultadoImport.invalidas.length === 1, `normalizarFilasImportadas: 1 fila inválida (obtuvo ${resultadoImport.invalidas.length})`);
+  assert(resultadoImport.validas.length === 3, `normalizarFilasImportadas: 3 filas válidas (obtuvo ${resultadoImport.validas.length})`);
+  assert(resultadoImport.invalidas.length === 3, `normalizarFilasImportadas: 3 filas inválidas (obtuvo ${resultadoImport.invalidas.length})`);
   assert(resultadoImport.validas[0].codigo === '2000', 'Código autogenerado secuencial para fila sin código');
   assert(resultadoImport.validas[1].nombre === 'Prueba Import Dos', 'Detecta encabezado "Nombre" con mayúscula inicial');
   assert(resultadoImport.validas[1].departamento === 'Producción', 'Detecta encabezado "Departamento" con acento/mayúscula');
+  assert(resultadoImport.validas[1].centro_trabajo === 'CHAPULTEPEC', 'Centro "chapultepec" (minúsculas) se resuelve al id CHAPULTEPEC');
+  assert(resultadoImport.invalidas.some((f) => f.motivo.includes('Centro de Trabajo')), 'Fila sin centro de trabajo se marca inválida con motivo claro');
+  assert(resultadoImport.invalidas.some((f) => f.motivo.includes('Ciudad Inventada')), 'Centro no reconocido se marca inválido, mencionando el valor recibido');
 
-  // Ahora probamos el flujo completo de UI de importación con un archivo .xlsx
-  // real. Usamos un único encabezado consistente por hoja (como sería un
-  // Excel real); la detección de variantes de encabezado (mayúsculas/acentos)
-  // ya quedó probada arriba de forma directa con normalizarFilasImportadas().
+  // Verificar que status/status_guia1/status_guia2 se inicializan según
+  // las guías activas del centro real (Toluca = III+I, Chapultepec = III+I, Foro 4 = solo II).
+  const filaToluca = resultadoImport.validas.find((f) => f.centro_trabajo === 'TOLUCA');
+  assert(filaToluca.status === 'no_contesto' && filaToluca.status_guia1 === 'no_contesto' && filaToluca.status_guia2 === null,
+    'Toluca (Guía III + I): status=no_contesto, status_guia1=no_contesto, status_guia2=null');
+  const filaForo4 = resultadoImport.validas.find((f) => f.centro_trabajo === 'FORO_4');
+  assert(filaForo4.status === null && filaForo4.status_guia1 === null && filaForo4.status_guia2 === 'no_contesto',
+    'Foro 4 (solo Guía II): status=null, status_guia1=null, status_guia2=no_contesto');
+
+  // Ahora probamos el flujo completo de UI de importación con un archivo .xlsx real.
   const filasParaArchivo = [
-    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', email: 'p1@riverline.mx' },
-    { nombre: 'Prueba Import Dos', puesto: 'Operador', departamento: 'Producción', email: 'p2@riverline.mx' },
-    { nombre: '', puesto: 'Sin depto', departamento: '', email: 'malo@riverline.mx' }, // fila inválida
+    { nombre: 'Prueba Import Uno', puesto: 'Analista', departamento: 'Calidad', 'centro de trabajo': 'Toluca', email: 'p1@riverline.mx' },
+    { nombre: 'Prueba Import Dos', puesto: 'Operador', departamento: 'Producción', 'centro de trabajo': 'Chapultepec', email: 'p2@riverline.mx' },
+    { nombre: '', puesto: 'Sin depto', departamento: '', 'centro de trabajo': 'Toluca', email: 'malo@riverline.mx' }, // fila inválida
   ];
   const libro = XLSX.utils.book_new();
   const hoja = XLSX.utils.json_to_sheet(filasParaArchivo);

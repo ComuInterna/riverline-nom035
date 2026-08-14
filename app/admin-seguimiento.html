@@ -49,13 +49,8 @@
 
   .filtros{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
   .filtros select, .filtros input{
-    font-family: var(--font);
-    font-size: 13.5px;
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid var(--rojo-oscuro);
-    background: white;
-    color: var(--gris-100);
+    font-family:var(--font);font-size:13.5px;padding:9px 12px;border-radius:var(--radius-sm);
+    border:1.5px solid var(--gris-200);background:var(--gris-100);color:var(--negro);
   }
   .filtros select:focus, .filtros input:focus{outline:none;border-color:var(--rojo);background:#fff;}
 
@@ -124,6 +119,7 @@
       <button class="btn btn-secundario" id="btn-recordatorio-masivo">Enviar recordatorio a pendientes</button>
     </div>
     <div class="filtros">
+      <select id="filtro-centro"><option value="">Todos los centros</option></select>
       <select id="filtro-departamento"><option value="">Todos los departamentos</option></select>
       <select id="filtro-puesto"><option value="">Todos los puestos</option></select>
       <select id="filtro-status">
@@ -141,7 +137,7 @@
 <div id="modal-importar" class="modal-fondo oculto">
   <div class="modal">
     <h2>Importar colaboradores</h2>
-    <p class="desc">Sube un Excel o CSV con las columnas: <strong>nombre, puesto, departamento, email</strong> (opcional: <strong>codigo</strong>). Si no incluyes código, se genera uno automáticamente.</p>
+    <p class="desc">Sube un Excel o CSV con las columnas: <strong>nombre, puesto, departamento, centro de trabajo, email</strong> (opcional: <strong>codigo</strong>). El valor de "centro de trabajo" debe coincidir con uno de tus centros (ej. "Chapultepec", "Toluca"). Si no incluyes código, se genera uno automáticamente.</p>
     <input type="file" id="input-archivo" class="campo-archivo" accept=".xlsx,.xls,.csv" />
     <div id="preview-importacion"></div>
     <div class="nav">
@@ -170,13 +166,42 @@
    ejemplo en memoria, para poder probar todo el flujo sin backend.
    ===================================================================== */
 
-const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 
 let supabaseClient = null;
 if (!MODO_DEMO) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ---------------------------------------------------------------------
+// Centros de trabajo (espejo de seguimiento.centros_trabajo). En modo
+// demo se usa esta copia local; en producción se podría leer en vivo
+// con un SELECT a esa tabla, pero como cambia poco, basta con mantener
+// esta lista sincronizada con la real.
+// ---------------------------------------------------------------------
+const CENTROS_TRABAJO = [
+  { id: 'CEDIS', nombre: 'CEDIS', guias_activas: ['guia_3'] },
+  { id: 'CITY_CENTER', nombre: 'City Center', guias_activas: ['guia_3'] },
+  { id: 'FORO_4', nombre: 'Foro 4', guias_activas: ['guia_2'] },
+  { id: 'TIJUANA', nombre: 'Tijuana', guias_activas: ['guia_3'] },
+  { id: 'NOGALAR', nombre: 'Nogalar', guias_activas: ['guia_3'] },
+  { id: 'QUERETARO', nombre: 'Querétaro', guias_activas: ['guia_3'] },
+  { id: 'SAN_LUIS_POTOSI', nombre: 'San Luis Potosí', guias_activas: ['guia_3'] },
+  { id: 'LEON', nombre: 'León', guias_activas: ['guia_3'] },
+  { id: 'AGUASCALIENTES', nombre: 'Aguascalientes', guias_activas: ['guia_3'] },
+  { id: 'CHAPULTEPEC', nombre: 'Chapultepec', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'NAUCALPAN', nombre: 'Naucalpan', guias_activas: ['guia_3'] },
+  { id: 'LA_VIGA', nombre: 'La Viga', guias_activas: ['guia_3'] },
+  { id: 'TOLUCA', nombre: 'Toluca', guias_activas: ['guia_3', 'guia_1'] },
+  { id: 'PUEBLA', nombre: 'Puebla', guias_activas: ['guia_3'] },
+  { id: 'CALL_CENTER', nombre: 'Call Center', guias_activas: ['guia_2'] },
+];
+const CENTRO_POR_ID = new Map(CENTROS_TRABAJO.map(function(c){ return [c.id, c]; }));
+
+function statusInicialPara(guiasActivas, guia) {
+  return guiasActivas.indexOf(guia) !== -1 ? 'no_contesto' : null;
 }
 
 // ---------------------------------------------------------------------
@@ -185,24 +210,43 @@ if (!MODO_DEMO) {
 function generarPadronDemo() {
   const departamentos = ['Produccion', 'Calidad', 'Logistica', 'Ventas', 'Administracion'];
   const puestos = ['Operador', 'Supervisor', 'Analista', 'Coordinador', 'Gerente'];
-  const statuses = ['no_contesto', 'en_proceso', 'contesto'];
   const nombres = ['Ana', 'Luis', 'Maria', 'Carlos', 'Sofia', 'Jorge', 'Laura', 'Miguel', 'Paola', 'Raul', 'Diana', 'Ivan'];
   const apellidos = ['Garcia', 'Hernandez', 'Lopez', 'Martinez', 'Ramirez', 'Torres', 'Flores', 'Vega'];
   const filas = [];
   for (let i = 1; i <= 47; i++) {
-    const status = statuses[i % 3 === 0 ? 2 : (i % 5 === 0 ? 1 : 0)];
-    filas.push({
+    const centro = CENTROS_TRABAJO[i % CENTROS_TRABAJO.length];
+    const guias = centro.guias_activas;
+    // El "avance" simulado se aplica a la primera guía activa del centro.
+    const guiaPrincipal = guias[0];
+    const avance = i % 3 === 0 ? 'contesto' : (i % 5 === 0 ? 'en_proceso' : 'no_contesto');
+
+    const status = statusInicialPara(guias, 'guia_3');
+    const statusGuia1 = statusInicialPara(guias, 'guia_1');
+    const statusGuia2 = statusInicialPara(guias, 'guia_2');
+
+    const fila = {
       id: 'demo-' + i,
       codigo: String(1000 + i),
       nombre: nombres[i % nombres.length] + ' ' + apellidos[i % apellidos.length],
       puesto: puestos[i % puestos.length],
       departamento: departamentos[i % departamentos.length],
+      centro_trabajo: centro.id,
       email: 'colaborador' + i + '@riverline.mx',
       status: status,
-      fecha_acceso: status !== 'no_contesto' ? new Date(2026, 6, (i % 28) + 1).toISOString() : null,
-      fecha_encuesta: status === 'contesto' ? new Date(2026, 6, (i % 28) + 1).toISOString() : null,
+      status_guia1: statusGuia1,
+      status_guia2: statusGuia2,
+      fecha_acceso: null,
+      fecha_encuesta: null,
       recordatorios_enviados: 0,
-    });
+    };
+    // Simular avance solo en la guía principal de su centro, para que
+    // los KPIs y la tabla muestren variedad realista.
+    if (guiaPrincipal === 'guia_3') fila.status = avance;
+    if (guiaPrincipal === 'guia_2') fila.status_guia2 = avance;
+    if (avance !== 'no_contesto') fila.fecha_acceso = new Date(2026, 6, (i % 28) + 1).toISOString();
+    if (avance === 'contesto') fila.fecha_encuesta = new Date(2026, 6, (i % 28) + 1).toISOString();
+
+    filas.push(fila);
   }
   return filas;
 }
@@ -213,7 +257,7 @@ function generarPadronDemo() {
 const estado = {
   colaboradores: [],
   tiempoPromedioSegundos: null,
-  filtros: { departamento: '', puesto: '', status: '', busqueda: '' },
+  filtros: { centro: '', departamento: '', puesto: '', status: '', busqueda: '' },
   orden: { columna: 'nombre', direccion: 'asc' },
 };
 
@@ -221,12 +265,26 @@ const estado = {
 // FUNCIONES PURAS (testeables sin DOM)
 // =======================================================================
 
+/** El status "principal" de un colaborador es el de Guía III si su centro
+ * la usa, o el de Guía II si en cambio su centro usa esa. Un colaborador
+ * siempre tiene como máximo una de las dos activa (Guía I es aparte). */
+function statusPrincipal(c) {
+  if (c.status !== null && c.status !== undefined) return c.status;
+  if (c.status_guia2 !== null && c.status_guia2 !== undefined) return c.status_guia2;
+  return null;
+}
+
 function calcularKPIs(colaboradores, tiempoPromedioSegundos) {
-  const total = colaboradores.length;
-  const contestaron = colaboradores.filter(function(c){ return c.status === 'contesto'; }).length;
-  const enProceso = colaboradores.filter(function(c){ return c.status === 'en_proceso'; }).length;
-  const noContesto = colaboradores.filter(function(c){ return c.status === 'no_contesto'; }).length;
+  const conGuiaPrincipal = colaboradores.filter(function(c){ return statusPrincipal(c) !== null; });
+  const total = conGuiaPrincipal.length;
+  const contestaron = conGuiaPrincipal.filter(function(c){ return statusPrincipal(c) === 'contesto'; }).length;
+  const enProceso = conGuiaPrincipal.filter(function(c){ return statusPrincipal(c) === 'en_proceso'; }).length;
+  const noContesto = conGuiaPrincipal.filter(function(c){ return statusPrincipal(c) === 'no_contesto'; }).length;
   const porcentaje = total > 0 ? Math.round((contestaron / total) * 100) : 0;
+
+  const conGuia1 = colaboradores.filter(function(c){ return c.status_guia1 !== null && c.status_guia1 !== undefined; });
+  const guia1Contestaron = conGuia1.filter(function(c){ return c.status_guia1 === 'contesto'; }).length;
+
   return {
     total: total,
     contestaron: contestaron,
@@ -235,15 +293,18 @@ function calcularKPIs(colaboradores, tiempoPromedioSegundos) {
     pendientes: enProceso + noContesto,
     porcentaje: porcentaje,
     tiempoPromedioSegundos: tiempoPromedioSegundos,
+    guia1Total: conGuia1.length,
+    guia1Contestaron: guia1Contestaron,
   };
 }
 
 function filtrarColaboradores(colaboradores, filtros) {
   const busq = (filtros.busqueda || '').trim().toLowerCase();
   return colaboradores.filter(function(c) {
+    if (filtros.centro && c.centro_trabajo !== filtros.centro) return false;
     if (filtros.departamento && c.departamento !== filtros.departamento) return false;
     if (filtros.puesto && c.puesto !== filtros.puesto) return false;
-    if (filtros.status && c.status !== filtros.status) return false;
+    if (filtros.status && statusPrincipal(c) !== filtros.status) return false;
     if (busq && c.nombre.toLowerCase().indexOf(busq) === -1) return false;
     return true;
   });
@@ -276,12 +337,16 @@ const ETIQUETA_STATUS = { no_contesto: 'No contesto', en_proceso: 'En proceso', 
 
 function construirFilasExportacion(colaboradores) {
   return colaboradores.map(function(c) {
+    const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+    const principal = statusPrincipal(c);
     return {
       Codigo: c.codigo,
       Nombre: c.nombre,
+      'Centro de trabajo': centro ? centro.nombre : (c.centro_trabajo || ''),
       Puesto: c.puesto,
       Departamento: c.departamento,
-      Status: ETIQUETA_STATUS[c.status] || c.status,
+      'Status Guía principal (II o III)': principal !== null ? (ETIQUETA_STATUS[principal] || principal) : 'No aplica',
+      'Status Guía I': (c.status_guia1 !== null && c.status_guia1 !== undefined) ? (ETIQUETA_STATUS[c.status_guia1] || c.status_guia1) : 'No aplica',
       'Fecha de acceso': c.fecha_acceso ? formatearFecha(c.fecha_acceso) : '',
       'Fecha de encuesta': c.fecha_encuesta ? formatearFecha(c.fecha_encuesta) : '',
       'Recordatorios enviados': c.recordatorios_enviados || 0,
@@ -318,6 +383,12 @@ function normalizarFilasImportadas(filasCrudas, codigoInicial) {
     return '';
   }
 
+  function normalizarTexto(txt) {
+    return txt.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  const idPorNombreNormalizado = new Map(CENTROS_TRABAJO.map(function(c){ return [normalizarTexto(c.nombre), c.id]; }));
+  const idsValidos = new Set(CENTROS_TRABAJO.map(function(c){ return c.id; }));
+
   const validas = [];
   const invalidas = [];
   let siguienteCodigo = codigoInicial;
@@ -327,17 +398,38 @@ function normalizarFilasImportadas(filasCrudas, codigoInicial) {
     const puesto = obtenerCampo(fila, ['puesto']);
     const departamento = obtenerCampo(fila, ['departamento', 'depto']);
     const email = obtenerCampo(fila, ['email', 'correo']);
+    const centroCrudo = obtenerCampo(fila, ['centro de trabajo', 'centro_trabajo', 'centro']);
     let codigo = obtenerCampo(fila, ['codigo', 'c\u00f3digo']);
 
     if (!nombre || !departamento) {
       invalidas.push({ fila: idx + 1, motivo: 'Falta nombre o departamento', datos: fila });
       return;
     }
+    if (!centroCrudo) {
+      invalidas.push({ fila: idx + 1, motivo: 'Falta "Centro de Trabajo"', datos: fila });
+      return;
+    }
+    // Acepta tanto el nombre para mostrar ("Chapultepec") como el id ("CHAPULTEPEC").
+    const centroId = idsValidos.has(centroCrudo.toUpperCase())
+      ? centroCrudo.toUpperCase()
+      : idPorNombreNormalizado.get(normalizarTexto(centroCrudo));
+    if (!centroId) {
+      invalidas.push({ fila: idx + 1, motivo: 'Centro de trabajo "' + centroCrudo + '" no reconocido', datos: fila });
+      return;
+    }
     if (!codigo) {
       codigo = String(siguienteCodigo);
       siguienteCodigo++;
     }
-    validas.push({ codigo: codigo, nombre: nombre, puesto: puesto, departamento: departamento, email: email, status: 'no_contesto' });
+    const centroInfo = CENTRO_POR_ID.get(centroId);
+    const guias = centroInfo ? centroInfo.guias_activas : [];
+    validas.push({
+      codigo: codigo, nombre: nombre, puesto: puesto, departamento: departamento,
+      centro_trabajo: centroId, email: email,
+      status: statusInicialPara(guias, 'guia_3'),
+      status_guia1: statusInicialPara(guias, 'guia_1'),
+      status_guia2: statusInicialPara(guias, 'guia_2'),
+    });
   });
 
   return { validas: validas, invalidas: invalidas };
@@ -353,18 +445,21 @@ function renderKPIs() {
   const kpi = calcularKPIs(estado.colaboradores, estado.tiempoPromedioSegundos);
   const contenedor = document.getElementById('grid-kpi');
   const minutos = kpi.tiempoPromedioSegundos != null ? Math.round(kpi.tiempoPromedioSegundos / 60) : null;
+  const subGuia1 = kpi.guia1Total > 0 ? ('<div class="kpi-sub">Guía I: ' + kpi.guia1Contestaron + '/' + kpi.guia1Total + ' completadas</div>') : '';
   contenedor.innerHTML =
-    '<div class="kpi-card"><div class="kpi-label">Total colaboradores</div><div class="kpi-valor">' + kpi.total + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Contestaron</div><div class="kpi-valor verde">' + kpi.contestaron + '</div><div class="kpi-sub">' + kpi.porcentaje + '% del total</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Total colaboradores</div><div class="kpi-valor">' + kpi.total + '</div>' + subGuia1 + '</div>' +
+    '<div class="kpi-card"><div class="kpi-label">Contestaron</div><div class="kpi-valor verde">' + kpi.contestaron + '</div><div class="kpi-sub">' + kpi.porcentaje + '% del total (Guía II o III, según su centro)</div></div>' +
     '<div class="kpi-card"><div class="kpi-label">Pendientes</div><div class="kpi-valor rojo">' + kpi.pendientes + '</div><div class="kpi-sub">' + kpi.noContesto + ' sin iniciar \u00b7 ' + kpi.enProceso + ' en proceso</div></div>' +
     '<div class="kpi-card"><div class="kpi-label">% de avance</div><div class="kpi-valor">' + kpi.porcentaje + '%</div></div>' +
     '<div class="kpi-card"><div class="kpi-label">Tiempo promedio</div><div class="kpi-valor">' + (minutos != null ? minutos + ' min' : '\u2014') + '</div><div class="kpi-sub">Calculado de forma agregada y anonima</div></div>';
 }
 
 function renderFiltros() {
+  const selCentro = document.getElementById('filtro-centro');
   const selDept = document.getElementById('filtro-departamento');
   const selPuesto = document.getElementById('filtro-puesto');
   if (selDept.dataset.armado) return;
+  CENTROS_TRABAJO.forEach(function(c){ selCentro.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.nombre + '</option>'); });
   const departamentos = valoresUnicos(estado.colaboradores, 'departamento');
   const puestos = valoresUnicos(estado.colaboradores, 'puesto');
   departamentos.forEach(function(d){ selDept.insertAdjacentHTML('beforeend', '<option value="' + d + '">' + d + '</option>'); });
@@ -372,13 +467,32 @@ function renderFiltros() {
   selDept.dataset.armado = '1';
 }
 
+function badgesGuiaHTML(c) {
+  const badges = [];
+  const principal = statusPrincipal(c);
+  if (principal !== null) {
+    const centro = CENTRO_POR_ID.get(c.centro_trabajo);
+    const etiquetaGuia = (centro && centro.guias_activas.indexOf('guia_2') !== -1) ? 'G2' : 'G3';
+    badges.push('<span class="badge badge-' + principal + '" title="' + etiquetaGuia + '">' + etiquetaGuia + ': ' + ETIQUETA_STATUS[principal] + '</span>');
+  }
+  if (c.status_guia1 !== null && c.status_guia1 !== undefined) {
+    badges.push('<span class="badge badge-' + c.status_guia1 + '" title="G1">G1: ' + ETIQUETA_STATUS[c.status_guia1] + '</span>');
+  }
+  return badges.join(' ');
+}
+
 function filaHTML(c) {
-  const puedeRecordar = c.status !== 'contesto';
+  const principal = statusPrincipal(c);
+  const pendienteGuia1 = c.status_guia1 !== null && c.status_guia1 !== undefined && c.status_guia1 !== 'contesto';
+  const pendientePrincipal = principal !== null && principal !== 'contesto';
+  const puedeRecordar = pendientePrincipal || pendienteGuia1;
+  const centro = CENTRO_POR_ID.get(c.centro_trabajo);
   return '<tr data-id="' + c.id + '">' +
     '<td>' + c.nombre + '</td>' +
+    '<td>' + (centro ? centro.nombre : (c.centro_trabajo || '\u2014')) + '</td>' +
     '<td>' + c.puesto + '</td>' +
     '<td>' + c.departamento + '</td>' +
-    '<td><span class="badge badge-' + c.status + '">' + ETIQUETA_STATUS[c.status] + '</span></td>' +
+    '<td>' + badgesGuiaHTML(c) + '</td>' +
     '<td>' + formatearFecha(c.fecha_encuesta || c.fecha_acceso) + '</td>' +
     '<td><button class="btn-fila" data-accion="recordatorio" data-id="' + c.id + '" ' + (puedeRecordar ? '' : 'disabled') + '>' + (c.recordatorios_enviados > 0 ? ('Reenviar (' + c.recordatorios_enviados + ')') : 'Recordar') + '</button></td>' +
     '</tr>';
@@ -397,9 +511,10 @@ function renderTabla() {
   contenedor.innerHTML =
     '<table class="tabla-seguimiento"><thead><tr>' +
     '<th data-col="nombre">Nombre</th>' +
+    '<th data-col="centro_trabajo">Centro</th>' +
     '<th data-col="puesto">Puesto</th>' +
     '<th data-col="departamento">Departamento</th>' +
-    '<th data-col="status">Status</th>' +
+    '<th>Guía(s)</th>' +
     '<th data-col="fecha_encuesta">Fecha</th>' +
     '<th>Accion</th>' +
     '</tr></thead><tbody>' + ordenadas.map(filaHTML).join('') + '</tbody></table>';
@@ -437,9 +552,16 @@ function mostrarToast(mensaje) {
 // ---------------------------------------------------------------------
 // Acciones: recordatorios
 // ---------------------------------------------------------------------
+function tienePendientes(c) {
+  const principal = statusPrincipal(c);
+  const pendientePrincipal = principal !== null && principal !== 'contesto';
+  const pendienteGuia1 = c.status_guia1 !== null && c.status_guia1 !== undefined && c.status_guia1 !== 'contesto';
+  return pendientePrincipal || pendienteGuia1;
+}
+
 async function enviarRecordatorio(colaboradorId) {
   const colaborador = estado.colaboradores.find(function(c){ return c.id === colaboradorId; });
-  if (!colaborador || colaborador.status === 'contesto') return;
+  if (!colaborador || !tienePendientes(colaborador)) return;
 
   if (MODO_DEMO) {
     colaborador.recordatorios_enviados = (colaborador.recordatorios_enviados || 0) + 1;
@@ -448,7 +570,7 @@ async function enviarRecordatorio(colaboradorId) {
     return;
   }
   try {
-    const resp = await supabase.functions.invoke('send-reminder', { body: { colaborador_id: colaboradorId } });
+    const resp = await supabaseClient.functions.invoke('send-reminder', { body: { colaborador_id: colaboradorId } });
     if (resp.error) throw resp.error;
     colaborador.recordatorios_enviados = (colaborador.recordatorios_enviados || 0) + 1;
     renderTabla();
@@ -459,7 +581,7 @@ async function enviarRecordatorio(colaboradorId) {
 }
 
 async function enviarRecordatorioMasivo() {
-  const pendientes = filtrarColaboradores(estado.colaboradores, estado.filtros).filter(function(c){ return c.status !== 'contesto'; });
+  const pendientes = filtrarColaboradores(estado.colaboradores, estado.filtros).filter(tienePendientes);
   if (pendientes.length === 0) {
     mostrarToast('No hay pendientes en la vista actual.');
     return;
@@ -574,7 +696,7 @@ async function confirmarImportacion() {
   } else {
     // Ver Módulo 9: la importación pasa por un RPC SECURITY DEFINER que
     // valida que quien llama sea admin y deduplica por email.
-    const resp = await supabase.rpc('admin_importar_colaboradores', { p_filas: filasParaImportar });
+    const resp = await supabaseClient.rpc('admin_importar_colaboradores', { p_filas: filasParaImportar });
     if (resp.error) {
       mostrarToast('Error al importar. Revisa el archivo e intenta de nuevo.');
       boton.disabled = false;
@@ -603,11 +725,11 @@ async function cargarColaboradores() {
   }
   // Ver Módulo 9: nunca se lee seguimiento.colaboradores directo — el RPC
   // valida que quien llama sea admin antes de regresar cualquier fila.
-  const resp = await supabase.rpc('admin_obtener_seguimiento');
+  const resp = await supabaseClient.rpc('admin_obtener_seguimiento');
   if (resp.error) { mostrarToast('Error al cargar colaboradores.'); return; }
   estado.colaboradores = resp.data || [];
 
-  const promedioResp = await supabase.rpc('duracion_promedio_segundos');
+  const promedioResp = await supabaseClient.rpc('duracion_promedio_segundos');
   estado.tiempoPromedioSegundos = promedioResp.data != null ? promedioResp.data : null;
 }
 
@@ -615,6 +737,7 @@ async function cargarColaboradores() {
 // Wiring de eventos
 // ---------------------------------------------------------------------
 function inicializarEventos() {
+  document.getElementById('filtro-centro').addEventListener('change', function(e){ estado.filtros.centro = e.target.value; renderTabla(); });
   document.getElementById('filtro-departamento').addEventListener('change', function(e){ estado.filtros.departamento = e.target.value; renderTabla(); });
   document.getElementById('filtro-puesto').addEventListener('change', function(e){ estado.filtros.puesto = e.target.value; renderTabla(); });
   document.getElementById('filtro-status').addEventListener('change', function(e){ estado.filtros.status = e.target.value; renderTabla(); });

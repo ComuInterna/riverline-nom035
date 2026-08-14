@@ -18,7 +18,9 @@
     --gris-200:#e7e8ec;
     --gris-100:#f4f4f7;
     --blanco:#ffffff;
-    --verde-ok:#1f8a4c;
+    --verde-ok:#1e864a;
+    --ambar:#83641e;
+    --ambar-bg:#fbf3dd;
     --radius-lg:20px;
     --radius-md:14px;
     --radius-sm:9px;
@@ -82,6 +84,10 @@
     align-items:center;
     gap:6px;
   }
+  .pill-confidencial.no-anonima{
+    color:var(--ambar);
+    background:var(--ambar-bg);
+  }
   .pill-confidencial svg{width:12px;height:12px;}
 
   main{flex:1; display:flex; flex-direction:column; padding-bottom:40px;}
@@ -125,7 +131,6 @@
     font-family:var(--font);
     font-size:16px;
     background:var(--gris-100);
-    color:white;
     transition:border-color .15s ease, background .15s ease;
   }
   input.campo-input:focus{
@@ -176,7 +181,48 @@
     background:var(--gris-100); display:flex;align-items:center;justify-content:center;
     color:var(--rojo);
   }
+  .lista-check .icono.ambar{ color:var(--ambar); background:var(--ambar-bg); }
   .lista-check .icono svg{width:14px;height:14px;}
+
+  .aviso-identificado{
+    background:var(--ambar-bg);
+    border-left:3px solid var(--ambar);
+    border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+    padding:14px 16px;
+    font-size:13.5px;
+    line-height:1.5;
+    color:var(--gris-900);
+    margin:0 0 22px;
+  }
+
+  /* ---------- MENU DE GUIAS ---------- */
+  .lista-guias{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
+  .opcion-guia{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:16px 18px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--gris-200);
+    cursor:pointer;
+    background:none;
+    text-align:left;
+    font-family:var(--font);
+    width:100%;
+    transition:border-color .12s ease;
+  }
+  .opcion-guia:hover{ border-color:var(--rojo); }
+  .opcion-guia .icono-guia{
+    flex-shrink:0; width:38px;height:38px;border-radius:10px;
+    background:var(--gris-100); display:flex;align-items:center;justify-content:center;
+    color:var(--rojo);
+  }
+  .opcion-guia .icono-guia svg{ width:18px;height:18px; }
+  .opcion-guia .texto-guia{ flex:1; }
+  .opcion-guia .nombre-guia{ font-size:15px; font-weight:700; color:var(--negro); margin-bottom:2px; }
+  .opcion-guia .detalle-guia{ font-size:12.5px; color:var(--gris-500); }
+  .opcion-guia .flecha-guia{ color:var(--gris-500); flex-shrink:0; }
+  .opcion-guia .flecha-guia svg{ width:16px;height:16px; }
 
   /* ---------- ENCUESTA ---------- */
   .barra-progreso-wrap{
@@ -315,7 +361,9 @@
     }
     body{ background:#0c0d10; }
     .pill-confidencial{ background:#123420; }
+    .pill-confidencial.no-anonima{ background:#3a2f14; }
     .opcion.seleccionada{ background:#301419; }
+    .aviso-identificado{ background:#3a2f14; }
   }
 </style>
 </head>
@@ -327,7 +375,7 @@
       <span class="brand-mark"></span>
       <span>Riverline<br><small>Cultura Riverline · NOM-035</small></span>
     </div>
-    <div class="pill-confidencial">
+    <div class="pill-confidencial" id="pill-confidencial">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg>
       100% anónima
     </div>
@@ -338,56 +386,50 @@
 
 <script type="module">
 /* =====================================================================
-   MÓDULO 4 — COLABORADOR
-   Login → Bienvenida → Encuesta (Guía III) → Cierre
-   =====================================================================
+   COLABORADOR — multi-guía
+   Login → (menú si hay varias guías pendientes) → Bienvenida → Encuesta
+   (Guía I, II o III según el centro de trabajo) → Cierre
 
    INTEGRACIÓN CON SUPABASE (producción):
-   1) Reemplaza SUPABASE_URL y SUPABASE_ANON_KEY abajo con las de tu
-      proyecto.
-   2) Crea la Edge Function "finalize-survey" (ver archivo
-      finalize-survey.ts entregado junto con este módulo) que:
-        a) valida el código de colaborador contra seguimiento.colaboradores
-        b) ejecuta el motor de calificación (scoring-engine.js, Módulo 3)
-        c) escribe en encuestas.* (anónimo) y en seguimiento.* (status)
-           en dos escrituras independientes, sin exponer el vínculo.
-   3) La tabla catalogo.reactivos debe estar cargada (ver Módulo 2).
-      Este archivo trae una copia local de los 72 reactivos oficiales
-      como resiliencia offline / para poder probar sin conexión; en
-      producción, si Supabase está configurado, los reactivos se leen
-      en vivo de catalogo.reactivos (fuente única de verdad).
+   - Reemplaza SUPABASE_URL y SUPABASE_ANON_KEY abajo.
+   - colaborador_buscar() (ver Módulo 9 / 08-fix) debe regresar
+     status, status_guia1, status_guia2 y centro_trabajo.
+   - Las 3 Edge Functions correspondientes (finalize-survey,
+     finalize-survey-guia2, finalize-survey-guia1) deben estar desplegadas.
 
-   MODO DEMO:
-   Si no configuras SUPABASE_URL/KEY, la app corre en modo demo: usa un
-   padrón de colaboradores de ejemplo y guarda todo en localStorage, sin
-   tocar ningún backend. Sirve para probar el flujo completo de inmediato.
+   MODO DEMO: usa un padrón de ejemplo con distintas combinaciones de
+   centro/guía, para poder probar todos los caminos sin backend.
    ===================================================================== */
 
-const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
-
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
 const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
 
-let supabase = null;
+let supabaseClient = null;
 if (!MODO_DEMO) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 // ---------------------------------------------------------------------
-// Padrón de ejemplo para modo demo (nunca se usa si Supabase está
-// configurado correctamente).
+// Padrón de ejemplo (modo demo): 4 códigos que cubren los caminos reales.
 // ---------------------------------------------------------------------
 const PADRON_DEMO = [
-  { id: 'demo-001', codigo: '1001', nombre: 'Colaborador de prueba', status: 'no_contesto' },
-  { id: 'demo-002', codigo: '1002', nombre: 'Colaboradora de prueba', status: 'no_contesto' },
+  { id: 'demo-001', codigo: '1001', nombre: 'Colaborador de prueba (solo Guía III)', status: 'no_contesto', status_guia1: null, status_guia2: null, centro_trabajo: 'TIJUANA' },
+  { id: 'demo-002', codigo: '1002', nombre: 'Colaboradora de prueba (solo Guía II)', status: null, status_guia1: null, status_guia2: 'no_contesto', centro_trabajo: 'FORO_4' },
+  { id: 'demo-003', codigo: '1003', nombre: 'Colaborador de prueba (Guía III + Guía I)', status: 'no_contesto', status_guia1: 'no_contesto', status_guia2: null, centro_trabajo: 'CHAPULTEPEC' },
+  { id: 'demo-004', codigo: '1004', nombre: 'Colaborador de prueba (ya completó todo)', status: 'contesto', status_guia1: 'contesto', status_guia2: null, centro_trabajo: 'CHAPULTEPEC' },
 ];
 
-// ---------------------------------------------------------------------
-// Catálogo local (fallback / resiliencia offline). 72 reactivos oficiales,
-// Guía de Referencia III, NOM-035-STPS-2018 (DOF, 23/oct/2018).
-// Cada bloque respeta el encabezado de sección y el orden oficial.
-// ---------------------------------------------------------------------
-const SECCIONES = [
+// =======================================================================
+// CATÁLOGOS (72 reactivos Guía III, 46 Guía II, 15 Guía I). Transcritos
+// literales de la Guía de Referencia correspondiente, NOM-035-STPS-2018
+// (DOF, 23/oct/2018).
+// =======================================================================
+
+const ESCALA = ['Siempre', 'Casi siempre', 'Algunas veces', 'Casi nunca', 'Nunca'];
+
+// ---- GUÍA III (72 reactivos, centros de +50 trabajadores) ----
+const SECCIONES_G3 = [
   { encabezado: 'Para responder las preguntas siguientes considere las condiciones ambientales de su centro de trabajo.', items: [1,2,3,4,5] },
   { encabezado: 'Para responder a las preguntas siguientes piense en la cantidad y ritmo de trabajo que tiene.', items: [6,7,8] },
   { encabezado: 'Las preguntas siguientes están relacionadas con el esfuerzo mental que le exige su trabajo.', items: [9,10,11,12] },
@@ -401,8 +443,7 @@ const SECCIONES = [
   { encabezado: 'Las preguntas siguientes están relacionadas con la información que recibe sobre su rendimiento en el trabajo, el reconocimiento, el sentido de pertenencia y la estabilidad que le ofrece su trabajo.', items: [47,48,49,50,51,52,53,54,55,56] },
   { encabezado: 'Las preguntas siguientes están relacionadas con actos de violencia laboral (malos tratos, acoso, hostigamiento, acoso psicológico).', items: [57,58,59,60,61,62,63,64] },
 ];
-
-const TEXTOS = {
+const TEXTOS_G3 = {
   1:'El espacio donde trabajo me permite realizar mis actividades de manera segura e higiénica',
   2:'Mi trabajo me exige hacer mucho esfuerzo físico',
   3:'Me preocupa sufrir un accidente en mi trabajo',
@@ -476,49 +517,185 @@ const TEXTOS = {
   71:'Cooperan poco cuando se necesita',
   72:'Ignoran las sugerencias para mejorar su trabajo',
 };
+const SECCION_CLIENTES_G3 = { encabezado: 'Las preguntas siguientes están relacionadas con la atención a clientes y usuarios.', items:[65,66,67,68] };
+const SECCION_JEFE_G3 = { encabezado: 'Las siguientes preguntas están relacionadas con las actitudes de las personas que supervisa.', items:[69,70,71,72] };
 
-const SECCION_CLIENTES = { encabezado: 'Las preguntas siguientes están relacionadas con la atención a clientes y usuarios.', items:[65,66,67,68] };
-const SECCION_JEFE = { encabezado: 'Las siguientes preguntas están relacionadas con las actitudes de las personas que supervisa.', items:[69,70,71,72] };
+// ---- GUÍA II (46 reactivos, centros de 16-50 trabajadores) ----
+const SECCIONES_G2 = [
+  { encabezado: 'Para responder las preguntas siguientes considere las condiciones de su centro de trabajo, así como la cantidad y ritmo de trabajo.', items: [1,2,3,4,5,6,7,8,9] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con las actividades que realiza en su trabajo y las responsabilidades que tiene.', items: [10,11,12,13] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con el tiempo destinado a su trabajo y sus responsabilidades familiares.', items: [14,15,16,17] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con las decisiones que puede tomar en su trabajo.', items: [18,19,20,21,22] },
+  { encabezado: 'Las preguntas siguientes están relacionadas con la capacitación e información que recibe sobre su trabajo.', items: [23,24,25,26,27] },
+  { encabezado: 'Las preguntas siguientes se refieren a las relaciones con sus compañeros de trabajo y su jefe.', items: [28,29,30,31,32,33,34,35,36,37,38,39,40] },
+];
+const TEXTOS_G2 = {
+  1:'Mi trabajo me exige hacer mucho esfuerzo físico',
+  2:'Me preocupa sufrir un accidente en mi trabajo',
+  3:'Considero que las actividades que realizo son peligrosas',
+  4:'Por la cantidad de trabajo que tengo debo quedarme tiempo adicional a mi turno',
+  5:'Por la cantidad de trabajo que tengo debo trabajar sin parar',
+  6:'Considero que es necesario mantener un ritmo de trabajo acelerado',
+  7:'Mi trabajo exige que esté muy concentrado',
+  8:'Mi trabajo requiere que memorice mucha información',
+  9:'Mi trabajo exige que atienda varios asuntos al mismo tiempo',
+  10:'En mi trabajo soy responsable de cosas de mucho valor',
+  11:'Respondo ante mi jefe por los resultados de toda mi área de trabajo',
+  12:'En mi trabajo me dan órdenes contradictorias',
+  13:'Considero que en mi trabajo me piden hacer cosas innecesarias',
+  14:'Trabajo horas extras más de tres veces a la semana',
+  15:'Mi trabajo me exige laborar en días de descanso, festivos o fines de semana',
+  16:'Considero que el tiempo en el trabajo es mucho y perjudica mis actividades familiares o personales',
+  17:'Pienso en las actividades familiares o personales cuando estoy en mi trabajo',
+  18:'Mi trabajo permite que desarrolle nuevas habilidades',
+  19:'En mi trabajo puedo aspirar a un mejor puesto',
+  20:'Durante mi jornada de trabajo puedo tomar pausas cuando las necesito',
+  21:'Puedo decidir la velocidad a la que realizo mis actividades en mi trabajo',
+  22:'Puedo cambiar el orden de las actividades que realizo en mi trabajo',
+  23:'Me informan con claridad cuáles son mis funciones',
+  24:'Me explican claramente los resultados que debo obtener en mi trabajo',
+  25:'Me informan con quién puedo resolver problemas o asuntos de trabajo',
+  26:'Me permiten asistir a capacitaciones relacionadas con mi trabajo',
+  27:'Recibo capacitación útil para hacer mi trabajo',
+  28:'Mi jefe tiene en cuenta mis puntos de vista y opiniones',
+  29:'Mi jefe ayuda a solucionar los problemas que se presentan en el trabajo',
+  30:'Puedo confiar en mis compañeros de trabajo',
+  31:'Cuando tenemos que realizar trabajo de equipo los compañeros colaboran',
+  32:'Mis compañeros de trabajo me ayudan cuando tengo dificultades',
+  33:'En mi trabajo puedo expresarme libremente sin interrupciones',
+  34:'Recibo críticas constantes a mi persona y/o trabajo',
+  35:'Recibo burlas, calumnias, difamaciones, humillaciones o ridiculizaciones',
+  36:'Se ignora mi presencia o se me excluye de las reuniones de trabajo y en la toma de decisiones',
+  37:'Se manipulan las situaciones de trabajo para hacerme parecer un mal trabajador',
+  38:'Se ignoran mis éxitos laborales y se atribuyen a otros trabajadores',
+  39:'Me bloquean o impiden las oportunidades que tengo para obtener ascenso o mejora en mi trabajo',
+  40:'He presenciado actos de violencia en mi centro de trabajo',
+  41:'Atiendo clientes o usuarios muy enojados',
+  42:'Mi trabajo me exige atender personas muy necesitadas de ayuda o enfermas',
+  43:'Para hacer mi trabajo debo demostrar sentimientos distintos a los míos',
+  44:'Comunican tarde los asuntos de trabajo',
+  45:'Dificultan el logro de los resultados del trabajo',
+  46:'Ignoran las sugerencias para mejorar su trabajo',
+};
+const SECCION_CLIENTES_G2 = { encabezado: 'Las preguntas siguientes están relacionadas con la atención a clientes y usuarios.', items:[41,42,43] };
+const SECCION_JEFE_G2 = { encabezado: 'Las preguntas siguientes están relacionadas con las actitudes de las personas que supervisa.', items:[44,45,46] };
 
-const ESCALA = ['Siempre', 'Casi siempre', 'Algunas veces', 'Casi nunca', 'Nunca'];
+// ---- GUÍA I (15 reactivos, tamizaje de eventos traumáticos) ----
+// Sí/No. El reactivo 1 es la propia compuerta: si es "No", termina ahí.
+const SECCIONES_G1 = [
+  { encabezado: 'Acontecimiento traumático severo', items: [1] },
+  { encabezado: 'Recuerdos persistentes sobre el acontecimiento', items: [2,3], condicionRespuesta: 1 },
+  { encabezado: 'Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento', items: [4,5,6,7,8,9,10], condicionRespuesta: 1 },
+  { encabezado: 'Afectación', items: [11,12,13,14,15], condicionRespuesta: 1 },
+];
+const TEXTOS_G1 = {
+  1: '¿Ha presenciado o sufrido alguna vez, durante o con motivo del trabajo, un acontecimiento como los siguientes: accidente que tenga como consecuencia la muerte, la pérdida de un miembro o una lesión grave; asaltos; actos violentos que derivaron en lesiones graves; secuestro; amenazas; o cualquier otro que ponga en riesgo su vida o salud, y/o la de otras personas?',
+  2: '¿Ha tenido recuerdos recurrentes sobre el acontecimiento que le provocan malestares?',
+  3: '¿Ha tenido sueños de carácter recurrente sobre el acontecimiento, que le producen malestar?',
+  4: '¿Se ha esforzado por evitar todo tipo de sentimientos, conversaciones o situaciones que le puedan recordar el acontecimiento?',
+  5: '¿Se ha esforzado por evitar todo tipo de actividades, lugares o personas que motivan recuerdos del acontecimiento?',
+  6: '¿Ha tenido dificultad para recordar alguna parte importante del evento?',
+  7: '¿Ha disminuido su interés en sus actividades cotidianas?',
+  8: '¿Se ha sentido usted alejado o distante de los demás?',
+  9: '¿Ha notado que tiene dificultad para expresar sus sentimientos?',
+  10: '¿Ha tenido la impresión de que su vida se va a acortar, que va a morir antes que otras personas o que tiene un futuro limitado?',
+  11: '¿Ha tenido usted dificultades para dormir?',
+  12: '¿Ha estado particularmente irritable o le han dado arranques de coraje?',
+  13: '¿Ha tenido dificultad para concentrarse?',
+  14: '¿Ha estado nervioso o constantemente en alerta?',
+  15: '¿Se ha sobresaltado fácilmente por cualquier cosa?',
+};
 
-// ---------------------------------------------------------------------
-// Estado de la aplicación
-// ---------------------------------------------------------------------
+// =======================================================================
+// DEFINICIÓN DE CADA GUÍA (parametriza todo el motor de encuesta)
+// =======================================================================
+const DEFINICIONES = {
+  guia_3: {
+    id: 'guia_3',
+    nombreMostrar: 'Cuestionario general',
+    detalleMenu: 'Identificación de riesgo psicosocial (10-15 min)',
+    tipoEscala: 'likert5',
+    secciones: SECCIONES_G3,
+    textos: TEXTOS_G3,
+    bifurcaciones: [
+      { clave: 'atiendeClientes', texto: 'En mi trabajo debo brindar servicio a clientes o usuarios:', seccion: SECCION_CLIENTES_G3 },
+      { clave: 'esJefe', texto: 'Soy jefe de otros trabajadores:', seccion: SECCION_JEFE_G3 },
+    ],
+    prefijoReactivo: 'R',
+    edgeFunction: 'finalize-survey',
+    tiempoEstimado: '10 y 15 minutos',
+    anonima: true,
+  },
+  guia_2: {
+    id: 'guia_2',
+    nombreMostrar: 'Cuestionario general',
+    detalleMenu: 'Identificación de riesgo psicosocial (7-10 min)',
+    tipoEscala: 'likert5',
+    secciones: SECCIONES_G2,
+    textos: TEXTOS_G2,
+    bifurcaciones: [
+      { clave: 'atiendeClientes', texto: 'En mi trabajo debo brindar servicio a clientes o usuarios:', seccion: SECCION_CLIENTES_G2 },
+      { clave: 'esJefe', texto: 'Soy jefe de otros trabajadores:', seccion: SECCION_JEFE_G2 },
+    ],
+    prefijoReactivo: 'G2_R',
+    edgeFunction: 'finalize-survey-guia2',
+    tiempoEstimado: '7 y 10 minutos',
+    anonima: true,
+  },
+  guia_1: {
+    id: 'guia_1',
+    nombreMostrar: 'Cuestionario de bienestar',
+    detalleMenu: 'Identificación de apoyo tras eventos difíciles (2-5 min)',
+    tipoEscala: 'sino',
+    secciones: SECCIONES_G1,
+    textos: TEXTOS_G1,
+    bifurcaciones: [],
+    prefijoReactivo: 'GR1_',
+    edgeFunction: 'finalize-survey-guia1',
+    tiempoEstimado: '2 y 5 minutos',
+    anonima: false,
+  },
+};
+
+// =======================================================================
+// ESTADO
+// =======================================================================
 const estado = {
-  pantalla: 'login',
-  colaborador: null,       // { id, codigo, nombre }
-  inicio: null,            // timestamp de inicio de la encuesta
-  atiendeClientes: null,   // true/false/null
-  esJefe: null,            // true/false/null
-  respuestas: {},          // { [numeroReactivo]: indice(0-4) }
-  pasoActual: 0,           // índice dentro de la lista lineal de "pasos"
+  colaborador: null,        // { id, codigo, nombre, status, status_guia1, status_guia2, centro_trabajo }
+  pendientesRestantes: [],  // ['guia_3', 'guia_1', ...] — se va vaciando conforme completa cada una
+  guiaActual: null,         // 'guia_3' | 'guia_2' | 'guia_1'
+  inicio: null,
+  atiendeClientes: null,
+  esJefe: null,
+  respuestas: {},
+  pasoActual: 0,
 };
 
 const main = document.getElementById('main');
 
+function definicionActual() { return DEFINICIONES[estado.guiaActual]; }
+
 // ---------------------------------------------------------------------
-// Construcción de la lista lineal de pasos de la encuesta:
-// cada "paso" es una sección de reactivos, o una pregunta Sí/No de bifurcación.
+// Motor de "pasos" — genérico para las 3 guías.
 // ---------------------------------------------------------------------
-function construirPasos() {
-  const pasos = [...SECCIONES.map((s) => ({ tipo: 'seccion', ...s }))];
-  pasos.push({ tipo: 'sino', clave: 'atiendeClientes', texto: 'En mi trabajo debo brindar servicio a clientes o usuarios:' });
-  pasos.push({ tipo: 'seccion', condicion: 'atiendeClientes', ...SECCION_CLIENTES });
-  pasos.push({ tipo: 'sino', clave: 'esJefe', texto: 'Soy jefe de otros trabajadores:' });
-  pasos.push({ tipo: 'seccion', condicion: 'esJefe', ...SECCION_JEFE });
+function construirPasos(definicion) {
+  const pasos = definicion.secciones.map((s) => ({ tipo: 'seccion', ...s }));
+  for (const bif of definicion.bifurcaciones) {
+    pasos.push({ tipo: 'sino', clave: bif.clave, texto: bif.texto });
+    pasos.push({ tipo: 'seccion', condicion: bif.clave, ...bif.seccion });
+  }
   return pasos;
 }
-const PASOS = construirPasos();
 
 function pasoAplica(paso) {
-  if (!paso.condicion) return true;
-  return estado[paso.condicion] === true;
+  if (paso.condicion) return estado[paso.condicion] === true;
+  if (paso.condicionRespuesta !== undefined) return estado.respuestas[paso.condicionRespuesta] === true;
+  return true;
 }
 
 function totalReactivosAplicables() {
   let total = 0;
-  for (const p of PASOS) {
+  for (const p of estado.pasos) {
     if (p.tipo === 'seccion' && pasoAplica(p)) total += p.items.length;
   }
   return total;
@@ -528,10 +705,10 @@ function reactivosRespondidos() {
 }
 
 // ---------------------------------------------------------------------
-// Persistencia local (buffer de autoguardado, por colaborador)
+// Persistencia local (buffer de autoguardado, por colaborador Y por guía)
 // ---------------------------------------------------------------------
-function claveBuffer() {
-  return `nom035_buffer_${estado.colaborador.codigo}`;
+function claveBuffer(guia) {
+  return `nom035_buffer_${estado.colaborador.codigo}_${guia}`;
 }
 function guardarBuffer() {
   const payload = {
@@ -541,26 +718,15 @@ function guardarBuffer() {
     respuestas: estado.respuestas,
     pasoActual: estado.pasoActual,
   };
-  localStorage.setItem(claveBuffer(), JSON.stringify(payload));
-
-  // En producción: además de guardar localmente, se puede sincronizar
-  // el avance contra una tabla temporal en Supabase (seguimiento.buffer_respuestas)
-  // para permitir reanudar desde otro dispositivo. Ver nota de arquitectura:
-  // ese buffer se elimina por completo al finalizar (Edge Function finalize-survey).
-  if (supabase) {
-    supabase.from('seguimiento_buffer_respuestas')
-      .upsert({ colaborador_id: estado.colaborador.id, payload, actualizado_en: new Date().toISOString() })
-      .then(() => {})
-      .catch(() => { /* fallo silencioso: el buffer local ya lo protege */ });
-  }
+  localStorage.setItem(claveBuffer(estado.guiaActual), JSON.stringify(payload));
 }
-function recuperarBuffer(codigo) {
-  const raw = localStorage.getItem(`nom035_buffer_${codigo}`);
+function recuperarBuffer(codigo, guia) {
+  const raw = localStorage.getItem(`nom035_buffer_${codigo}_${guia}`);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
 }
 function borrarBuffer() {
-  localStorage.removeItem(claveBuffer());
+  localStorage.removeItem(claveBuffer(estado.guiaActual));
 }
 
 // ---------------------------------------------------------------------
@@ -571,10 +737,7 @@ async function buscarColaborador(codigo) {
     const encontrado = PADRON_DEMO.find((c) => c.codigo === codigo.trim());
     return encontrado || null;
   }
-  // Nota: en producción, este RPC (ver Módulo 9) es la ÚNICA forma en que el
-  // navegador del colaborador puede tocar seguimiento.colaboradores. Regresa
-  // solo id/nombre/status — nunca email, puesto o departamento.
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .rpc('colaborador_buscar', { p_codigo: codigo.trim() })
     .maybeSingle();
   if (error) throw error;
@@ -583,13 +746,17 @@ async function buscarColaborador(codigo) {
 
 async function marcarAcceso(colaboradorId) {
   if (MODO_DEMO) return;
-const { data, error } = await supabase.rpc(
-  'marcar_acceso_colaborador',
-  { p_colaborador_id: colaboradorId }
-);
+  await supabaseClient.rpc('marcar_acceso_colaborador', { p_colaborador_id: colaboradorId }).catch(() => {});
+}
 
-console.log(data);
-console.log(error);
+/** Regresa la lista de guías (['guia_3','guia_1', ...]) que le faltan a
+ * este colaborador, en un orden fijo (III/II primero, I al final). */
+function calcularGuiasPendientes(colaborador) {
+  const pendientes = [];
+  if (colaborador.status !== null && colaborador.status !== undefined && colaborador.status !== 'contesto') pendientes.push('guia_3');
+  if (colaborador.status_guia2 !== null && colaborador.status_guia2 !== undefined && colaborador.status_guia2 !== 'contesto') pendientes.push('guia_2');
+  if (colaborador.status_guia1 !== null && colaborador.status_guia1 !== undefined && colaborador.status_guia1 !== 'contesto') pendientes.push('guia_1');
+  return pendientes;
 }
 
 function renderLogin() {
@@ -597,7 +764,7 @@ function renderLogin() {
     <div class="screen-login">
       <div class="card">
         <h1 class="titulo">Encuesta NOM-035</h1>
-        <p class="subtitulo">Ingresa tu código de colaborador para comenzar. Este código solo se usa para registrar que ya respondiste — tus respuestas nunca se vinculan a tu identidad.</p>
+        <p class="subtitulo">Ingresa tu código de colaborador para comenzar.</p>
         <div class="campo-grupo">
           <label class="campo-label" for="input-codigo">Código de colaborador</label>
           <input id="input-codigo" class="campo-input" type="text" inputmode="numeric" placeholder="Ej. 1001" autocomplete="off" />
@@ -622,14 +789,7 @@ function renderLogin() {
     try {
       const colaborador = await buscarColaborador(codigo);
       if (!colaborador) {
-        error.textContent = 'No encontramos ese código. Verifica con Gestión y Desarrollo de Talento Humano.';
-        error.classList.add('visible');
-        boton.disabled = false;
-        boton.textContent = 'Continuar';
-        return;
-      }
-      if (colaborador.status === 'contesto') {
-        error.textContent = 'Este código ya registró una encuesta contestada.';
+        error.textContent = 'No encontramos ese código. Verifica con Desarrollo Humano.';
         error.classList.add('visible');
         boton.disabled = false;
         boton.textContent = 'Continuar';
@@ -638,19 +798,22 @@ function renderLogin() {
       estado.colaborador = Object.assign({ codigo: codigo.trim() }, colaborador);
       await marcarAcceso(colaborador.id);
 
-      const buffer = recuperarBuffer(estado.colaborador.codigo);
-      if (buffer) {
-        estado.inicio = buffer.inicio;
-        estado.atiendeClientes = buffer.atiendeClientes;
-        estado.esJefe = buffer.esJefe;
-        estado.respuestas = buffer.respuestas;
-        estado.pasoActual = buffer.pasoActual;
-        estado.pantalla = 'encuesta';
-        renderEncuesta();
-      } else {
-        estado.pantalla = 'bienvenida';
-        renderBienvenida();
+      const pendientes = calcularGuiasPendientes(colaborador);
+      if (pendientes.length === 0) {
+        return renderNadaPendiente();
       }
+      estado.pendientesRestantes = pendientes;
+
+      // Si hay un buffer guardado de alguna guía pendiente, retomarla directo.
+      const conBuffer = pendientes.find((g) => recuperarBuffer(estado.colaborador.codigo, g));
+      if (conBuffer) {
+        return iniciarGuia(conBuffer, true);
+      }
+
+      if (pendientes.length === 1) {
+        return renderBienvenida(pendientes[0]);
+      }
+      return renderMenuGuias();
     } catch (e) {
       error.textContent = 'Ocurrió un problema al verificar tu código. Intenta de nuevo.';
       error.classList.add('visible');
@@ -660,65 +823,165 @@ function renderLogin() {
   });
 }
 
-// ---------------------------------------------------------------------
-// Bienvenida
-// ---------------------------------------------------------------------
-function renderBienvenida() {
+function renderNadaPendiente() {
+  actualizarPillConfidencial(true);
   main.innerHTML = `
-    <div class="screen-bienvenida">
+    <div class="screen-gracias">
       <div class="card">
-        <h1 class="titulo">Antes de comenzar</h1>
-        <p class="subtitulo">Esta encuesta identifica los factores de riesgo psicosocial en el trabajo y evalúa el entorno organizacional, conforme a la NOM-035-STPS-2018.</p>
-        <ul class="lista-check">
-          <li><span class="icono">${iconoCheck()}</span> Tus respuestas son completamente anónimas. Nunca se guarda tu nombre junto con lo que respondas.</li>
-          <li><span class="icono">${iconoCheck()}</span> Solo se registra que ya contestaste — jamás qué contestaste.</li>
-          <li><span class="icono">${iconoReloj()}</span> Toma entre 10 y 15 minutos. Puedes cerrar el navegador y continuar después donde te quedaste.</li>
-          <li><span class="icono">${iconoCheck()}</span> No hay respuestas correctas o incorrectas. Responde con sinceridad, pensando en los últimos dos meses.</li>
-        </ul>
-        <button id="btn-comenzar" class="btn btn-primario">Comenzar encuesta</button>
+        <div class="icono-check-grande">${iconoCheck()}</div>
+        <h1 class="titulo">Ya no tienes encuestas pendientes</h1>
+        <p class="subtitulo">Gracias por tu participación. Si crees que esto es un error, contacta a Desarrollo Humano.</p>
       </div>
     </div>
   `;
-  document.getElementById('btn-comenzar').addEventListener('click', () => {
-    estado.inicio = Date.now();
-    estado.pasoActual = 0;
-    estado.pantalla = 'encuesta';
-    guardarBuffer();
-    renderEncuesta();
+}
+
+// ---------------------------------------------------------------------
+// Menú (cuando hay más de una guía pendiente)
+// ---------------------------------------------------------------------
+function iconoGuia(guia) {
+  if (guia === 'guia_1') return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-4.35-9.5-8.5C1 9 2.5 5.5 6 5c2-.3 3.5.8 4.5 2 1-1.2 2.5-2.3 4.5-2 3.5.5 5 4 3.5 7.5C16 16.65 12 21 12 21z"/></svg>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`;
+}
+function iconoFlechaDerecha(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>`; }
+
+function renderMenuGuias() {
+  actualizarPillConfidencial(true);
+  const opciones = estado.pendientesRestantes.map((guia) => {
+    const def = DEFINICIONES[guia];
+    return `
+      <button class="opcion-guia" data-guia="${guia}">
+        <span class="icono-guia">${iconoGuia(guia)}</span>
+        <span class="texto-guia">
+          <span class="nombre-guia">${def.nombreMostrar}</span>
+          <span class="detalle-guia">${def.detalleMenu}</span>
+        </span>
+        <span class="flecha-guia">${iconoFlechaDerecha()}</span>
+      </button>
+    `;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="card">
+      <h1 class="titulo">Tienes ${estado.pendientesRestantes.length} encuestas pendientes</h1>
+      <p class="subtitulo">Puedes contestarlas en el orden que prefieras.</p>
+      <div class="lista-guias">${opciones}</div>
+    </div>
+  `;
+  document.querySelectorAll('.opcion-guia').forEach((btn) => {
+    btn.addEventListener('click', () => renderBienvenida(btn.dataset.guia));
   });
+}
+
+// ---------------------------------------------------------------------
+// Bienvenida
+// ---------------------------------------------------------------------
+function actualizarPillConfidencial(anonima) {
+  const pill = document.getElementById('pill-confidencial');
+  if (!pill) return;
+  if (anonima) {
+    pill.classList.remove('no-anonima');
+    pill.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg> 100% anónima`;
+  } else {
+    pill.classList.add('no-anonima');
+    pill.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg> Con tu nombre`;
+  }
+}
+
+function renderBienvenida(guia) {
+  const def = DEFINICIONES[guia];
+  actualizarPillConfidencial(def.anonima);
+
+  const avisoIdentificado = def.anonima ? '' : `
+    <div class="aviso-identificado">
+      <strong>Este cuestionario es distinto a los demás:</strong> tus respuestas aquí sí quedan
+      registradas junto con tu nombre. Es así a propósito — su objetivo es identificar si viviste
+      una experiencia difícil en el trabajo, para que, si hace falta, alguien de confianza pueda
+      ofrecerte apoyo. Solo Desarrollo Humano tiene acceso a este registro.
+    </div>
+  `;
+
+  const puntosLista = def.anonima ? `
+    <li><span class="icono">${iconoCheck()}</span> Tus respuestas son completamente anónimas. Nunca se guarda tu nombre junto con lo que respondas.</li>
+    <li><span class="icono">${iconoCheck()}</span> Solo se registra que ya contestaste — jamás qué contestaste.</li>
+    <li><span class="icono">${iconoReloj()}</span> Toma entre ${def.tiempoEstimado}. Puedes cerrar el navegador y continuar después donde te quedaste.</li>
+    <li><span class="icono">${iconoCheck()}</span> No hay respuestas correctas o incorrectas. Responde con sinceridad, pensando en los últimos dos meses.</li>
+  ` : `
+    <li><span class="icono ambar">${iconoReloj()}</span> Toma entre ${def.tiempoEstimado}. Puedes cerrar el navegador y continuar después donde te quedaste.</li>
+    <li><span class="icono ambar">${iconoCheck()}</span> No hay respuestas correctas o incorrectas — contesta con sinceridad.</li>
+    <li><span class="icono ambar">${iconoCheck()}</span> Si en algún momento sientes que necesitas hablar con alguien, puedes acercarte a Desarrollo Humano en cualquier momento, hayas contestado o no.</li>
+  `;
+
+  main.innerHTML = `
+    <div class="screen-bienvenida">
+      <div class="card">
+        <h1 class="titulo">${def.nombreMostrar}</h1>
+        <p class="subtitulo">${def.anonima
+          ? 'Esta encuesta identifica los factores de riesgo psicosocial en el trabajo, conforme a la NOM-035-STPS-2018.'
+          : 'Este cuestionario ayuda a identificar si alguien vivió una experiencia muy difícil en el trabajo y podría beneficiarse de apoyo, conforme a la NOM-035-STPS-2018.'}</p>
+        ${avisoIdentificado}
+        <ul class="lista-check">${puntosLista}</ul>
+        <button id="btn-comenzar" class="btn btn-primario">Comenzar</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-comenzar').addEventListener('click', () => iniciarGuia(guia, false));
 }
 
 function iconoCheck(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>`; }
 function iconoReloj(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`; }
 
 // ---------------------------------------------------------------------
-// Encuesta
+// Arranque de una guía (nueva o retomada desde buffer)
+// ---------------------------------------------------------------------
+function iniciarGuia(guia, retomarBuffer) {
+  estado.guiaActual = guia;
+  estado.pasos = construirPasos(DEFINICIONES[guia]);
+  actualizarPillConfidencial(DEFINICIONES[guia].anonima);
+
+  if (retomarBuffer) {
+    const buffer = recuperarBuffer(estado.colaborador.codigo, guia);
+    estado.inicio = buffer.inicio;
+    estado.atiendeClientes = buffer.atiendeClientes;
+    estado.esJefe = buffer.esJefe;
+    estado.respuestas = buffer.respuestas;
+    estado.pasoActual = buffer.pasoActual;
+  } else {
+    estado.inicio = Date.now();
+    estado.atiendeClientes = null;
+    estado.esJefe = null;
+    estado.respuestas = {};
+    estado.pasoActual = 0;
+    guardarBuffer();
+  }
+  renderEncuesta();
+}
+
+// ---------------------------------------------------------------------
+// Encuesta (genérica para las 3 guías)
 // ---------------------------------------------------------------------
 function pasoVisibleSiguiente(desde, direccion) {
   let i = desde;
-  while (i >= 0 && i < PASOS.length) {
-    if (pasoAplica(PASOS[i])) return i;
+  while (i >= 0 && i < estado.pasos.length) {
+    if (pasoAplica(estado.pasos[i])) return i;
     i += direccion;
   }
-  return direccion > 0 ? PASOS.length : -1;
+  return direccion > 0 ? estado.pasos.length : -1;
 }
 
 function renderEncuesta() {
-  // Asegura que el paso actual sea uno visible (por si venimos de un buffer
-  // guardado antes de contestar la bifurcación).
   estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual, 1);
-  if (estado.pasoActual >= PASOS.length) { return renderRevision(); }
+  if (estado.pasoActual >= estado.pasos.length) { return renderRevision(); }
 
-  const paso = PASOS[estado.pasoActual];
+  const paso = estado.pasos[estado.pasoActual];
+  if (paso.tipo === 'sino') return renderPasoSiNo(paso);
+  return renderPasoSeccion(paso);
+}
+
+function renderBarra() {
   const respondidos = reactivosRespondidos();
   const total = totalReactivosAplicables();
   const porcentaje = total > 0 ? Math.round((respondidos / total) * 100) : 0;
-
-  if (paso.tipo === 'sino') return renderPasoSiNo(paso, porcentaje);
-  return renderPasoSeccion(paso, porcentaje);
-}
-
-function renderBarra(porcentaje) {
   return `
     <div class="barra-progreso-wrap">
       <div class="barra-progreso-fila">
@@ -743,10 +1006,10 @@ function iniciarCronometro() {
   }, 1000);
 }
 
-function renderPasoSiNo(paso, porcentaje) {
+function renderPasoSiNo(paso) {
   const valorActual = estado[paso.clave];
   main.innerHTML = `
-    ${renderBarra(porcentaje)}
+    ${renderBarra()}
     <div class="card pregunta-si-no">
       <fieldset class="opciones">
         <legend class="reactivo-texto" style="font-size:19px;">${paso.texto}</legend>
@@ -772,7 +1035,7 @@ function renderPasoSiNo(paso, porcentaje) {
     input.addEventListener('change', () => {
       estado[paso.clave] = input.value === 'si';
       guardarBuffer();
-      renderPasoSiNo(paso, porcentaje);
+      renderPasoSiNo(paso);
     });
   });
   document.getElementById('btn-siguiente').addEventListener('click', () => {
@@ -782,27 +1045,36 @@ function renderPasoSiNo(paso, porcentaje) {
   });
   document.getElementById('btn-atras').addEventListener('click', () => {
     estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual - 1, -1);
-    if (estado.pasoActual < 0) { estado.pasoActual = 0; return renderBienvenida(); }
+    if (estado.pasoActual < 0) { estado.pasoActual = 0; return renderBienvenida(estado.guiaActual); }
     renderEncuesta();
   });
 }
 
-// Cada sección se responde reactivo por reactivo dentro del mismo paso,
-// para mantener la barra de progreso y el encabezado de sección visibles.
-function renderPasoSeccion(paso, porcentaje, indiceItemLocal = 0) {
+// Cada sección se responde reactivo por reactivo dentro del mismo paso.
+// tipoEscala determina si se muestran 5 opciones (Likert) o 2 (Sí/No).
+function renderPasoSeccion(paso, indiceItemLocal = 0) {
+  const def = definicionActual();
   const numero = paso.items[indiceItemLocal];
   const respuestaActual = estado.respuestas[numero];
+  const esLikert = def.tipoEscala === 'likert5';
+
+  const opciones = esLikert
+    ? ESCALA.map((etiqueta, idx) => ({ etiqueta, valor: String(idx), seleccionada: respuestaActual === idx }))
+    : [
+        { etiqueta: 'Sí', valor: 'si', seleccionada: respuestaActual === true },
+        { etiqueta: 'No', valor: 'no', seleccionada: respuestaActual === false },
+      ];
 
   main.innerHTML = `
-    ${renderBarra(Math.round((reactivosRespondidos() / totalReactivosAplicables()) * 100))}
-    <div class="card">
+    ${renderBarra()}
+    <div class="card ${esLikert ? '' : 'pregunta-si-no'}">
       <p class="seccion-encabezado">${paso.encabezado}</p>
       <fieldset class="opciones">
-        <legend class="reactivo-texto">${TEXTOS[numero]}</legend>
-        ${ESCALA.map((texto, idx) => `
-          <label class="opcion ${respuestaActual === idx ? 'seleccionada' : ''}">
-            <input type="radio" name="reactivo-${numero}" value="${idx}" ${respuestaActual === idx ? 'checked' : ''} />
-            <span class="radio-visual" aria-hidden="true"></span> ${texto}
+        <legend class="reactivo-texto">${def.textos[numero]}</legend>
+        ${opciones.map((op) => `
+          <label class="opcion ${op.seleccionada ? 'seleccionada' : ''}">
+            <input type="radio" name="reactivo-${numero}" value="${op.valor}" ${op.seleccionada ? 'checked' : ''} />
+            <span class="radio-visual" aria-hidden="true"></span> ${op.etiqueta}
           </label>
         `).join('')}
       </fieldset>
@@ -817,15 +1089,15 @@ function renderPasoSeccion(paso, porcentaje, indiceItemLocal = 0) {
 
   document.querySelectorAll(`input[name="reactivo-${numero}"]`).forEach((input) => {
     input.addEventListener('change', () => {
-      estado.respuestas[numero] = Number(input.value);
+      estado.respuestas[numero] = esLikert ? Number(input.value) : (input.value === 'si');
       guardarBuffer();
-      renderPasoSeccion(paso, porcentaje, indiceItemLocal);
+      renderPasoSeccion(paso, indiceItemLocal);
     });
   });
 
   document.getElementById('btn-siguiente').addEventListener('click', () => {
     if (indiceItemLocal + 1 < paso.items.length) {
-      renderPasoSeccion(paso, porcentaje, indiceItemLocal + 1);
+      renderPasoSeccion(paso, indiceItemLocal + 1);
     } else {
       estado.pasoActual = pasoVisibleSiguiente(estado.pasoActual + 1, 1);
       guardarBuffer();
@@ -835,14 +1107,14 @@ function renderPasoSeccion(paso, porcentaje, indiceItemLocal = 0) {
 
   document.getElementById('btn-atras').addEventListener('click', () => {
     if (indiceItemLocal > 0) {
-      renderPasoSeccion(paso, porcentaje, indiceItemLocal - 1);
+      renderPasoSeccion(paso, indiceItemLocal - 1);
     } else {
       const anterior = pasoVisibleSiguiente(estado.pasoActual - 1, -1);
-      if (anterior < 0) { return renderBienvenida(); }
+      if (anterior < 0) { return renderBienvenida(estado.guiaActual); }
       estado.pasoActual = anterior;
-      const pasoAnterior = PASOS[anterior];
+      const pasoAnterior = estado.pasos[anterior];
       if (pasoAnterior.tipo === 'seccion') {
-        renderPasoSeccion(pasoAnterior, porcentaje, pasoAnterior.items.length - 1);
+        renderPasoSeccion(pasoAnterior, pasoAnterior.items.length - 1);
       } else {
         renderEncuesta();
       }
@@ -856,16 +1128,19 @@ function iconoNube(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 // Revisión final y cierre
 // ---------------------------------------------------------------------
 function renderRevision() {
+  const def = definicionActual();
   const total = totalReactivosAplicables();
   const respondidos = reactivosRespondidos();
   const completo = respondidos === total;
 
+  const mensajeCompleto = def.anonima
+    ? 'Contestaste todos los reactivos. Una vez que envíes, no podrás modificar tus respuestas y no verás tu resultado individual — solo tu equipo de Desarrollo Humano verá los resultados agregados y anónimos.'
+    : 'Contestaste todo. Una vez que envíes, no podrás modificar tus respuestas. Recuerda que este cuestionario, a diferencia de los demás, sí queda registrado con tu nombre.';
+
   main.innerHTML = `
     <div class="card">
       <h1 class="titulo">Revisa antes de enviar</h1>
-      <p class="subtitulo">${completo
-        ? 'Contestaste todos los reactivos. Una vez que envíes, no podrás modificar tus respuestas y no verás tu resultado individual — solo tu equipo de Desarrollo Humano verá los resultados agregados y anónimos.'
-        : `Te faltan ${total - respondidos} reactivos por contestar.`}</p>
+      <p class="subtitulo">${completo ? mensajeCompleto : `Te faltan ${total - respondidos} reactivos por contestar.`}</p>
       <div class="nav-encuesta">
         <button class="btn btn-secundario" id="btn-revisar-atras">Regresar a la encuesta</button>
         <button class="btn btn-primario" id="btn-enviar" ${completo ? '' : 'disabled'}>Enviar respuestas</button>
@@ -879,35 +1154,44 @@ function renderRevision() {
   document.getElementById('btn-enviar').addEventListener('click', enviarEncuesta);
 }
 
+function construirCuerpoEnvio() {
+  const def = definicionActual();
+  if (def.tipoEscala === 'sino') {
+    const respuestas = {};
+    for (const [numero, valor] of Object.entries(estado.respuestas)) {
+      respuestas[def.prefijoReactivo + numero] = valor;
+    }
+    return { colaborador_id: estado.colaborador.id, respuestas };
+  }
+  const duracionSegundos = Math.floor((Date.now() - estado.inicio) / 1000);
+  const respuestasPlano = Object.entries(estado.respuestas).map(([numero, indice]) => ({
+    reactivo_id: def.prefijoReactivo + numero,
+    indice,
+  }));
+  return {
+    colaborador_id: estado.colaborador.id,
+    respuestas: respuestasPlano,
+    atiendeClientes: estado.atiendeClientes,
+    esJefe: estado.esJefe,
+    duracion_segundos: duracionSegundos,
+  };
+}
+
 async function enviarEncuesta() {
+  const def = definicionActual();
   const boton = document.getElementById('btn-enviar');
   boton.disabled = true;
   boton.textContent = 'Enviando…';
 
-  const duracionSegundos = Math.floor((Date.now() - estado.inicio) / 1000);
-  const respuestasPlano = Object.entries(estado.respuestas).map(([numero, indice]) => ({
-    reactivo_id: `R${numero}`,
-    indice,
-  }));
-
   try {
     if (MODO_DEMO) {
-      // En modo demo no hay motor de calificación server-side conectado;
-      // solo simulamos el cierre para poder probar el flujo completo.
       await new Promise((r) => setTimeout(r, 700));
     } else {
-      const { error } = await supabase.functions.invoke('finalize-survey', {
-        body: {
-          colaborador_id: estado.colaborador.id,
-          respuestas: respuestasPlano,
-          atiendeClientes: estado.atiendeClientes,
-          esJefe: estado.esJefe,
-          duracion_segundos: duracionSegundos,
-        },
-      });
+      const { error } = await supabaseClient.functions.invoke(def.edgeFunction, { body: construirCuerpoEnvio() });
       if (error) throw error;
     }
     borrarBuffer();
+    estado.pendientesRestantes = estado.pendientesRestantes.filter((g) => g !== estado.guiaActual);
     renderGracias();
   } catch (e) {
     boton.disabled = false;
@@ -917,15 +1201,29 @@ async function enviarEncuesta() {
 }
 
 function renderGracias() {
+  const quedan = estado.pendientesRestantes.length;
+  actualizarPillConfidencial(true);
   main.innerHTML = `
     <div class="screen-gracias">
       <div class="card">
         <div class="icono-check-grande">${iconoCheck()}</div>
-        <h1 class="titulo">Gracias por participar</h1>
-        <p class="subtitulo">Tu encuesta fue registrada de forma anónima. Los resultados agregados ayudarán a mejorar nuestro entorno de trabajo en Riverline.</p>
+        <h1 class="titulo">${quedan > 0 ? '¡Gracias! Esa ya quedó.' : 'Gracias por participar'}</h1>
+        <p class="subtitulo">${quedan > 0
+          ? `Aún te ${quedan === 1 ? 'falta 1 encuesta' : `faltan ${quedan} encuestas`} por contestar.`
+          : 'Tus respuestas fueron registradas. Ayudarán a mejorar nuestro entorno de trabajo en Riverline.'}</p>
+        ${quedan > 0 ? '<button id="btn-continuar" class="btn btn-primario">Continuar</button>' : ''}
       </div>
     </div>
   `;
+  if (quedan > 0) {
+    document.getElementById('btn-continuar').addEventListener('click', () => {
+      if (estado.pendientesRestantes.length === 1) {
+        renderBienvenida(estado.pendientesRestantes[0]);
+      } else {
+        renderMenuGuias();
+      }
+    });
+  }
 }
 
 // ---------------------------------------------------------------------
