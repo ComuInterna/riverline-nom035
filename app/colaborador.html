@@ -131,6 +131,7 @@
     font-family:var(--font);
     font-size:16px;
     background:var(--gris-100);
+    color:white;
     transition:border-color .15s ease, background .15s ease;
   }
   input.campo-input:focus{
@@ -737,11 +738,19 @@ async function buscarColaborador(codigo) {
     const encontrado = PADRON_DEMO.find((c) => c.codigo === codigo.trim());
     return encontrado || null;
   }
+  // Nota: se evita .maybeSingle() encadenado a .rpc() a propósito — es un
+  // punto conocido de fragilidad entre versiones de supabase-js/PostgREST
+  // con funciones que regresan tabla (a veces no desenvuelve el array de
+  // 1 fila y lanza un error aunque la fila sí exista). Se desenvuelve el
+  // array a mano, que es equivalente pero no depende de ese comportamiento.
   const { data, error } = await supabaseClient
-    .rpc('colaborador_buscar', { p_codigo: codigo.trim() })
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+    .rpc('colaborador_buscar', { p_codigo: codigo.trim() });
+  if (error) {
+    console.error('[buscarColaborador] error de RPC colaborador_buscar:', error);
+    throw error;
+  }
+  const fila = Array.isArray(data) ? (data[0] ?? null) : data;
+  return fila;
 }
 
 async function marcarAcceso(colaboradorId) {
@@ -815,6 +824,7 @@ function renderLogin() {
       }
       return renderMenuGuias();
     } catch (e) {
+      console.error('[login colaborador] excepción no controlada:', e);
       error.textContent = 'Ocurrió un problema al verificar tu código. Intenta de nuevo.';
       error.classList.add('visible');
       boton.disabled = false;
