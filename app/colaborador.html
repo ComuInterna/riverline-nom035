@@ -755,7 +755,15 @@ async function buscarColaborador(codigo) {
 
 async function marcarAcceso(colaboradorId) {
   if (MODO_DEMO) return;
-  await supabaseClient.rpc('marcar_acceso_colaborador', { p_colaborador_id: colaboradorId }).catch(() => {});
+  // Nota: por el mismo motivo que en buscarColaborador(), no se encadena
+  // .catch() directo sobre el builder de .rpc() — se envuelve en try/catch
+  // normal tras el await, que es equivalente pero no depende de que el
+  // builder exponga .catch() antes de resolverse.
+  try {
+    await supabaseClient.rpc('marcar_acceso_colaborador', { p_colaborador_id: colaboradorId });
+  } catch (e) {
+    console.error('[marcarAcceso] error de RPC marcar_acceso_colaborador (no bloqueante):', e);
+  }
 }
 
 /** Regresa la lista de guías (['guia_3','guia_1', ...]) que le faltan a
