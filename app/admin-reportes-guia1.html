@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Reportes Guía I</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --nulo:#1f8a4c;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:980px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:#c99a2e;padding:5px 10px;border-radius:100px;}
+  .pill-aviso{font-size:11.5px;font-weight:600;background:#fde8ea;color:var(--rojo-oscuro);padding:9px 12px;border-radius:var(--radius-sm);display:block;margin-bottom:14px;}
+
+  .panel-personas{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;}
+  .panel-titulo{font-size:14px;font-weight:800;margin:0 0 10px;}
+  .filtros-acciones{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .btn-mini{appearance:none;border:1.5px solid var(--gris-200);background:#fff;cursor:pointer;font-family:var(--font);font-weight:700;font-size:12px;border-radius:100px;padding:6px 12px;color:var(--gris-700);}
+  .btn-mini:hover{border-color:var(--gris-500);}
+  .campo-busqueda{width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);font-family:var(--font);font-size:13.5px;margin-bottom:12px;background:#fff;color:var(--negro);}
+  .lista-centros-filtro{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .chip-centro{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:100px;border:1.5px solid var(--gris-200);background:#fff;color:var(--gris-700);cursor:pointer;user-select:none;}
+  .chip-centro.activo{background:var(--negro);color:#fff;border-color:var(--negro);}
+
+  .lista-personas{max-height:340px;overflow-y:auto;border:1px solid var(--gris-100);border-radius:var(--radius-sm);margin-bottom:14px;}
+  .persona-check{display:flex;align-items:center;gap:10px;font-size:13px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--gris-100);}
+  .persona-check:last-child{border-bottom:none;}
+  .persona-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--rojo);flex-shrink:0;}
+  .persona-nombre{font-weight:700;}
+  .persona-meta{color:var(--gris-500);font-size:11.5px;}
+  .badge-clinico{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:auto;flex-shrink:0;}
+  .badge-clinico.si{background:#fde8ea;color:var(--rojo-oscuro);}
+  .badge-clinico.no{background:#e3f3e8;color:var(--nulo);}
+
+  .btn-secundario{appearance:none;border:1.5px solid var(--gris-200);background:#fff;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:11px 16px;color:var(--negro);}
+  .btn-secundario:hover{border-color:var(--gris-500);}
+  .btn-secundario:disabled{opacity:.5;cursor:not-allowed;}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:11px 16px;transition:transform .1s ease, background .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-primario{background:var(--rojo);color:#fff;}
+  .btn-primario:hover{background:var(--rojo-oscuro);}
+  .btn-primario:disabled{opacity:.5;cursor:not-allowed;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;}
+  .resumen-fila{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--gris-100);}
+  .resumen-fila:last-child{border-bottom:none;}
+  .resumen-fila span:first-child{color:var(--gris-500);}
+  .resumen-fila span:last-child{font-weight:700;}
+  .tabla-resumen-personas{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+  .tabla-resumen-personas th{text-align:left;color:var(--gris-500);font-weight:700;padding:7px 8px;border-bottom:1.5px solid var(--gris-100);}
+  .tabla-resumen-personas td{padding:8px;border-bottom:1px solid var(--gris-100);}
+
+  .grid-reportes{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px;}
+  @media (max-width:700px){.grid-reportes{grid-template-columns:1fr;}}
+  .tarjeta-reporte{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:12px;}
+  .tarjeta-icono{width:42px;height:42px;border-radius:10px;background:var(--gris-100);display:flex;align-items:center;justify-content:center;color:var(--rojo);}
+  .tarjeta-icono svg{width:20px;height:20px;}
+  .tarjeta-titulo{font-size:15.5px;font-weight:800;}
+  .tarjeta-desc{font-size:12.5px;color:var(--gris-700);line-height:1.5;flex:1;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--negro);color:#fff;padding:13px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:100;}
+
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-100:#121317; --gris-200:#26282f; --blanco:#1b1c22; --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89; }
+    body{background:#0c0d10;}
+    .tarjeta-reporte,.panel,.panel-personas{background:#1b1c22;}
+    .btn-mini,.btn-secundario,.campo-busqueda,.chip-centro{background:#1b1c22;color:#eceef1;}
+    .chip-centro.activo{background:#f2f2f4;color:#15161a;}
+    .tarjeta-icono{background:#26282f;}
+    .lista-personas{border-color:#26282f;}
+    .persona-check{border-color:#26282f;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Reportes Guía I</small></span>
+    </div>
+    <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
+  </header>
+
+  <span class="pill-aviso">Guía I identifica a la persona a propósito (numeral 5.5 de la norma). Estos reportes son individuales y confidenciales — nunca se mezclan con los reportes agregados/anónimos de Guía II/III.</span>
+
+  <section class="panel-personas">
+    <div class="panel-titulo">Colaboradores a incluir en el reporte</div>
+    <input type="text" id="campo-busqueda" class="campo-busqueda" placeholder="Buscar por nombre o código…" />
+    <div class="lista-centros-filtro" id="lista-centros-filtro"></div>
+    <div class="filtros-acciones">
+      <button class="btn-mini" id="btn-seleccionar-todos" type="button">Seleccionar todos (filtrados)</button>
+      <button class="btn-mini" id="btn-limpiar-seleccion" type="button">Limpiar</button>
+    </div>
+    <div class="lista-personas" id="lista-personas"></div>
+    <button class="btn-secundario" id="btn-cargar-seleccion">Cargar seleccionados</button>
+  </section>
+
+  <section class="panel">
+    <div class="panel-titulo">Resumen de la selección</div>
+    <div id="resumen-seleccion"><p style="color:var(--gris-500);font-size:13px;">Selecciona uno o varios colaboradores y presiona "Cargar seleccionados".</p></div>
+  </section>
+
+  <section class="grid-reportes">
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">PDF Ejecutivo</div>
+      <div class="tarjeta-desc">Una sección por colaborador: resultado de tamizaje y si requiere atención clínica. Para seguimiento admin/clínico, no para difusión general.</div>
+      <button class="btn btn-primario" id="btn-pdf-ejecutivo">Descargar PDF Ejecutivo</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">PDF Técnico</div>
+      <div class="tarjeta-desc">Igual que el ejecutivo más metodología, cumplimiento normativo y desglose completo por sección y criterio disparado.</div>
+      <button class="btn btn-primario" id="btn-pdf-tecnico">Descargar PDF Técnico</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">Excel</div>
+      <div class="tarjeta-desc">Una fila por colaborador con todos los campos — útil para dar seguimiento a quiénes requieren canalización.</div>
+      <button class="btn btn-primario" id="btn-excel">Descargar Excel</button>
+    </div>
+    <div class="tarjeta-reporte">
+      <div class="tarjeta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="tarjeta-titulo">Word</div>
+      <div class="tarjeta-desc">Documento editable con la misma estructura del PDF técnico, para anotar o adaptar antes de canalizar un caso.</div>
+      <button class="btn btn-primario" id="btn-word">Descargar Word</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   REPORTES INDIVIDUALES — GUIA I (identificada, admin-only)
+   A proposito separado de admin-reportes.html (agregado/anonimo, Guia
+   II/III). PDF Ejecutivo/Tecnico (pdfmake), Excel (SheetJS), Word
+   (docx). Todo el contenido sale de admin_obtener_resultados_guia1(),
+   nunca se inventa informacion.
+   ===================================================================== */
+
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabaseClient = null;
+if (!MODO_DEMO) {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const CENTROS_TRABAJO = [
+  'CEDIS', 'City Center', 'Foro 4', 'Tijuana', 'Nogalar', 'Queretaro',
+  'San Luis Potosi', 'Leon', 'Aguascalientes', 'Chapultepec', 'Naucalpan',
+  'La Viga', 'Toluca', 'Puebla', 'Call Center',
+];
+
+const TEXTO_OBJETIVO = 'Identificar de manera individual a los colaboradores que hayan estado expuestos a acontecimientos traumaticos severos, en cumplimiento del numeral 5.5 de la NOM-035-STPS-2018, mediante la aplicacion de la Guia de Referencia I, para canalizar oportunamente a quienes lo requieran a la atencion especializada correspondiente.';
+const TEXTO_METODOLOGIA = 'Se aplico la Guia de Referencia I (15 reactivos, respuesta Si/No) a los colaboradores de los centros de trabajo donde aplica de forma automatica, asi como a colaboradores asignados manualmente por el administrador. A diferencia de las Guias II y III, este cuestionario identifica a la persona a proposito -- la norma requiere poder canalizarla a atencion clinica cuando el resultado lo amerite -- por lo que sus resultados se manejan de forma individual y confidencial, nunca en reportes agregados ni anonimos.';
+const TEXTO_CUMPLIMIENTO = 'La calificacion de cada caso se realizo con el motor de calificacion validado contra la metodologia oficial de compuertas de la Guia de Referencia I (evento traumatico detonante en la seccion I, y umbrales de 1 o mas respuestas afirmativas en la seccion II, 3 o mas en la seccion III, y 2 o mas en la seccion IV), sin modificar, resumir ni reinterpretar la metodologia oficial en ningun punto del proceso.';
+
+const estado = {
+  todos: [],
+  seleccionados: [],
+  errorCarga: null,
+  centrosFiltro: new Set(),
+};
+window.estado = estado;
+
+function datosDemo() {
+  const hoy = new Date().toISOString();
+  return [
+    { resultado_id: 'demo-1', colaborador_id: 'demo-1', nombre: 'Colaborador Demo 1', puesto: 'Operador', departamento: 'Produccion', centro_trabajo: 'CHAPULTEPEC', codigo: 'DEMO01', fecha: hoy, seccion1_evento_traumatico: true, seccion2_algun_si: true, seccion3_conteo_si: 4, seccion4_conteo_si: 1, requiere_atencion_clinica: true, criterios_disparados: ['seccion_2_algun_si', 'seccion_3_tres_o_mas_si'] },
+    { resultado_id: 'demo-2', colaborador_id: 'demo-2', nombre: 'Colaborador Demo 2', puesto: 'Auxiliar', departamento: 'Almacen', centro_trabajo: 'TOLUCA', codigo: 'DEMO02', fecha: hoy, seccion1_evento_traumatico: false, seccion2_algun_si: null, seccion3_conteo_si: null, seccion4_conteo_si: null, requiere_atencion_clinica: false, criterios_disparados: [] },
+  ];
+}
+
+async function cargarResultados() {
+  estado.errorCarga = null;
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').style.display = 'inline-block';
+    estado.todos = datosDemo();
+    renderListaPersonas();
+    return;
+  }
+  const resp = await supabaseClient.rpc('admin_obtener_resultados_guia1');
+  if (resp.error) {
+    console.error('admin_obtener_resultados_guia1:', resp.error);
+    estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
+      ? 'Tu sesion no tiene permisos de administrador, o expiro. Entra de nuevo desde la pagina de inicio.'
+      : 'No se pudieron cargar los resultados de Guia I. Revisa la consola para mas detalle.';
+    renderListaPersonas();
+    return;
+  }
+  estado.todos = resp.data || [];
+  renderListaPersonas();
+}
+
+function personasFiltradas() {
+  const texto = document.getElementById('campo-busqueda').value.trim().toLowerCase();
+  return estado.todos.filter((p) => {
+    if (estado.centrosFiltro.size > 0 && !estado.centrosFiltro.has(p.centro_trabajo)) return false;
+    if (!texto) return true;
+    return (p.nombre || '').toLowerCase().includes(texto) || (p.codigo || '').toLowerCase().includes(texto);
+  });
+}
+
+function renderListaCentrosFiltro() {
+  const contenedor = document.getElementById('lista-centros-filtro');
+  const centrosPresentes = Array.from(new Set(estado.todos.map((p) => p.centro_trabajo))).sort();
+  contenedor.innerHTML = centrosPresentes.map((c) =>
+    '<span class="chip-centro" data-centro="' + c + '">' + c + '</span>'
+  ).join('');
+  contenedor.querySelectorAll('.chip-centro').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const c = chip.dataset.centro;
+      if (estado.centrosFiltro.has(c)) { estado.centrosFiltro.delete(c); chip.classList.remove('activo'); }
+      else { estado.centrosFiltro.add(c); chip.classList.add('activo'); }
+      renderListaPersonas(false);
+    });
+  });
+}
+
+function renderListaPersonas(reconstruirChips) {
+  if (reconstruirChips !== false) renderListaCentrosFiltro();
+  const contenedor = document.getElementById('lista-personas');
+
+  if (estado.errorCarga) {
+    contenedor.innerHTML = '<p style="padding:14px;color:var(--rojo);font-size:13px;">' + estado.errorCarga + '</p>';
+    return;
+  }
+  const filtradas = personasFiltradas();
+  if (filtradas.length === 0) {
+    contenedor.innerHTML = '<p style="padding:14px;color:var(--gris-500);font-size:13px;">No hay resultados de Guia I que coincidan con el filtro.</p>';
+    return;
+  }
+  const seleccionadosIds = new Set(estado.seleccionados.map((p) => p.resultado_id));
+  contenedor.innerHTML = filtradas.map((p) => {
+    const marcado = seleccionadosIds.has(p.resultado_id);
+    const badge = p.requiere_atencion_clinica
+      ? '<span class="badge-clinico si">Requiere atencion</span>'
+      : '<span class="badge-clinico no">Sin criterios</span>';
+    return '<label class="persona-check">' +
+      '<input type="checkbox" value="' + p.resultado_id + '" ' + (marcado ? 'checked' : '') + ' />' +
+      '<span><span class="persona-nombre">' + p.nombre + '</span><br>' +
+      '<span class="persona-meta">' + (p.centro_trabajo || '') + ' · ' + (p.codigo || '') + '</span></span>' +
+      badge +
+      '</label>';
+  }).join('');
+}
+
+function idsMarcadosEnLista() {
+  return Array.from(document.querySelectorAll('#lista-personas input[type="checkbox"]:checked')).map((el) => el.value);
+}
+
+function cargarSeleccion() {
+  const ids = new Set(idsMarcadosEnLista());
+  estado.seleccionados = estado.todos.filter((p) => ids.has(p.resultado_id));
+  renderResumen();
+  habilitarBotonesReporte(estado.seleccionados.length > 0);
+}
+
+function renderResumen() {
+  const contenedor = document.getElementById('resumen-seleccion');
+  if (estado.seleccionados.length === 0) {
+    contenedor.innerHTML = '<p style="color:var(--gris-500);font-size:13px;">Selecciona uno o varios colaboradores y presiona "Cargar seleccionados".</p>';
+    return;
+  }
+  const conAtencion = estado.seleccionados.filter((p) => p.requiere_atencion_clinica).length;
+  const filas = estado.seleccionados.map((p) => {
+    const fecha = p.fecha ? new Date(p.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    return '<tr>' +
+      '<td>' + p.nombre + '</td>' +
+      '<td>' + (p.centro_trabajo || '—') + '</td>' +
+      '<td>' + fecha + '</td>' +
+      '<td>' + (p.requiere_atencion_clinica ? '<span class="badge-clinico si">Si</span>' : '<span class="badge-clinico no">No</span>') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  contenedor.innerHTML =
+    '<div class="resumen-fila"><span>Colaboradores incluidos</span><span>' + estado.seleccionados.length + '</span></div>' +
+    '<div class="resumen-fila"><span>Requieren atencion clinica</span><span>' + conAtencion + '</span></div>' +
+    '<table class="tabla-resumen-personas"><thead><tr><th>Nombre</th><th>Centro</th><th>Fecha</th><th>Atencion clinica</th></tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+function habilitarBotonesReporte(activo) {
+  ['btn-pdf-ejecutivo', 'btn-pdf-tecnico', 'btn-excel', 'btn-word'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !activo;
+  });
+}
+
+// ---------------------------------------------------------------------
+// Helpers de contenido compartidos entre formatos
+// ---------------------------------------------------------------------
+const ETIQUETA_CRITERIO = {
+  seccion_2_algun_si: 'Seccion II: al menos una respuesta afirmativa',
+  seccion_3_tres_o_mas_si: 'Seccion III: 3 o mas respuestas afirmativas',
+  seccion_4_dos_o_mas_si: 'Seccion IV: 2 o mas respuestas afirmativas',
+};
+
+function formatearFecha(fecha) {
+  return fecha ? new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) : 'No disponible';
+}
+
+function nombreArchivoSufijo() {
+  return estado.seleccionados.length === 1 ? (estado.seleccionados[0].codigo || estado.seleccionados[0].resultado_id) : estado.seleccionados.length + 'personas';
+}
+
+// =======================================================================
+// GENERACION: PDF (pdfmake)
+// =======================================================================
+function construirDocDefinicionPDF(tipo) {
+  const fechaGeneracion = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const personas = estado.seleccionados;
+
+  const portada = [
+    { text: 'Riverline', style: 'marca' },
+    { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo — Guia I' : 'Reporte Tecnico — Guia I', style: 'tituloPortada', margin: [0, 60, 0, 6] },
+    { text: 'Tamizaje de acontecimientos traumaticos severos · Individual y confidencial', style: 'subtituloPortada' },
+    { text: 'Colaboradores incluidos: ' + personas.length, margin: [0, 30, 0, 2], style: 'metaPortada' },
+    { text: 'Generado: ' + fechaGeneracion, style: 'metaPortada' },
+    { text: 'CONFIDENCIAL — uso exclusivo de Desarrollo Humano / seguimiento clinico.', style: 'metaPortada', margin: [0, 10, 0, 0] },
+    { text: '', pageBreak: 'after' },
+  ];
+
+  function seccionPersona(p, esPrimero) {
+    const colorFlag = p.requiere_atencion_clinica ? '#e50d2e' : '#1f8a4c';
+    const etiquetaFlag = p.requiere_atencion_clinica ? 'Requiere atencion clinica' : 'Sin criterios disparados';
+    const bloques = [
+      { text: p.nombre, style: 'h1Centro', pageBreak: esPrimero ? undefined : 'before' },
+      { text: (p.puesto || '—') + ' · ' + (p.departamento || '—') + ' · ' + (p.centro_trabajo || '—'), style: 'subtituloPortada' },
+      { text: 'Codigo: ' + (p.codigo || '—') + '   ·   Fecha de aplicacion: ' + formatearFecha(p.fecha), style: 'metaPortada', margin: [0, 2, 0, 14] },
+
+      { text: 'Resultado', style: 'h2' },
+      { text: etiquetaFlag, style: 'cifraFlag', color: colorFlag, margin: [0, 2, 0, 10] },
+
+      { text: 'Seccion I — Evento traumatico detonante', style: 'h3' },
+      { text: p.seccion1_evento_traumatico ? 'Si — se identifico un acontecimiento traumatico severo, se continuo con las secciones II a IV.' : 'No — no se identifico un acontecimiento traumatico severo. El cuestionario concluye aqui, segun la metodologia oficial.', margin: [0, 2, 0, 10] },
+    ];
+
+    if (p.seccion1_evento_traumatico) {
+      bloques.push(
+        {
+          table: {
+            widths: ['*', 'auto'],
+            body: [
+              [{ text: 'Seccion', style: 'th' }, { text: 'Resultado', style: 'th' }],
+              ['Seccion II (respuesta afirmativa)', p.seccion2_algun_si ? 'Si' : 'No'],
+              ['Seccion III (conteo de respuestas afirmativas)', String(p.seccion3_conteo_si)],
+              ['Seccion IV (conteo de respuestas afirmativas)', String(p.seccion4_conteo_si)],
+            ],
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 4, 0, 14],
+        },
+        { text: 'Criterios disparados', style: 'h3' },
+        (p.criterios_disparados && p.criterios_disparados.length > 0)
+          ? { ul: p.criterios_disparados.map((c) => ETIQUETA_CRITERIO[c] || c) }
+          : { text: 'Ninguno.' }
+      );
+    }
+
+    return bloques;
+  }
+
+  let contenido = [...portada];
+  personas.forEach((p, i) => { contenido = contenido.concat(seccionPersona(p, i === 0)); });
+
+  if (tipo === 'tecnico') {
+    contenido.push(
+      { text: 'Objetivo', style: 'h2', pageBreak: 'before' },
+      { text: TEXTO_OBJETIVO, margin: [0, 2, 0, 14] },
+      { text: 'Metodologia', style: 'h2' },
+      { text: TEXTO_METODOLOGIA, margin: [0, 2, 0, 14] },
+      { text: 'Cumplimiento normativo', style: 'h2' },
+      { text: TEXTO_CUMPLIMIENTO, margin: [0, 2, 0, 14] }
+    );
+  }
+
+  return {
+    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' Guia I - Riverline' },
+    pageMargins: [40, 50, 40, 50],
+    content: contenido,
+    styles: {
+      marca: { fontSize: 12, bold: true, color: '#e50d2e' },
+      tituloPortada: { fontSize: 24, bold: true },
+      subtituloPortada: { fontSize: 13, color: '#4a4d57' },
+      metaPortada: { fontSize: 11, color: '#4a4d57' },
+      h1Centro: { fontSize: 18, bold: true, margin: [0, 0, 0, 2] },
+      h2: { fontSize: 15, bold: true, margin: [0, 10, 0, 6] },
+      h3: { fontSize: 12.5, bold: true, margin: [0, 4, 0, 4] },
+      th: { bold: true, fillColor: '#f4f4f7' },
+      cifraFlag: { fontSize: 15, bold: true },
+      nota: { fontSize: 10, color: '#8a8d97' },
+    },
+    defaultStyle: { font: 'Roboto', fontSize: 11 },
+  };
+}
+
+function generarPDF(tipo) {
+  const docDefinicion = construirDocDefinicionPDF(tipo);
+  const nombreArchivo = 'reporte-' + tipo + '-guia1-' + nombreArchivoSufijo() + '.pdf';
+  window.pdfMake.createPdf(docDefinicion).download(nombreArchivo);
+}
+
+// =======================================================================
+// GENERACION: EXCEL (SheetJS)
+// =======================================================================
+function generarExcel() {
+  const libro = window.XLSX.utils.book_new();
+  const filas = estado.seleccionados.map((p) => ({
+    Nombre: p.nombre,
+    Puesto: p.puesto || '',
+    Departamento: p.departamento || '',
+    'Centro de trabajo': p.centro_trabajo || '',
+    Codigo: p.codigo || '',
+    'Fecha de aplicacion': formatearFecha(p.fecha),
+    'Evento traumatico (Seccion I)': p.seccion1_evento_traumatico ? 'Si' : 'No',
+    'Seccion II (algun si)': p.seccion1_evento_traumatico ? (p.seccion2_algun_si ? 'Si' : 'No') : 'N/A',
+    'Seccion III (conteo)': p.seccion1_evento_traumatico ? p.seccion3_conteo_si : 'N/A',
+    'Seccion IV (conteo)': p.seccion1_evento_traumatico ? p.seccion4_conteo_si : 'N/A',
+    'Requiere atencion clinica': p.requiere_atencion_clinica ? 'Si' : 'No',
+    'Criterios disparados': (p.criterios_disparados || []).map((c) => ETIQUETA_CRITERIO[c] || c).join('; '),
+  }));
+  const hoja = window.XLSX.utils.json_to_sheet(filas);
+  window.XLSX.utils.book_append_sheet(libro, hoja, 'Guia I');
+  window.XLSX.writeFile(libro, 'reporte-guia1-' + nombreArchivoSufijo() + '.xlsx');
+}
+
+// =======================================================================
+// GENERACION: WORD (docx)
+// =======================================================================
+async function generarWord() {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, PageBreak } = window.docx;
+  const fechaGeneracion = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const personas = estado.seleccionados;
+
+  function filaTabla(celdas, encabezado) {
+    return new TableRow({
+      children: celdas.map((texto) => new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: String(texto), bold: !!encabezado })] })],
+      })),
+    });
+  }
+
+  const hijos = [
+    new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'Reporte Tecnico — Guia I (tamizaje individual)', heading: HeadingLevel.HEADING_1 }),
+    new Paragraph({ text: 'Colaboradores incluidos: ' + personas.length + '   ·   Generado: ' + fechaGeneracion }),
+    new Paragraph({ text: 'CONFIDENCIAL — uso exclusivo de Desarrollo Humano / seguimiento clinico.' }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ text: 'Objetivo', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_OBJETIVO }),
+    new Paragraph({ text: 'Metodologia', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_METODOLOGIA }),
+    new Paragraph({ text: 'Cumplimiento normativo', heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ text: TEXTO_CUMPLIMIENTO }),
+  ];
+
+  personas.forEach((p, i) => {
+    hijos.push(
+      new Paragraph({ children: i === 0 ? [] : [new PageBreak()] }),
+      new Paragraph({ text: p.nombre, heading: HeadingLevel.HEADING_1 }),
+      new Paragraph({ text: (p.puesto || '—') + ' · ' + (p.departamento || '—') + ' · ' + (p.centro_trabajo || '—') }),
+      new Paragraph({ text: 'Codigo: ' + (p.codigo || '—') + '   ·   Fecha de aplicacion: ' + formatearFecha(p.fecha) }),
+      new Paragraph({ text: '' }),
+      new Paragraph({ text: p.requiere_atencion_clinica ? 'Requiere atencion clinica' : 'Sin criterios disparados', heading: HeadingLevel.HEADING_2 }),
+      new Paragraph({ text: 'Seccion I — Evento traumatico detonante', heading: HeadingLevel.HEADING_3 }),
+      new Paragraph({ text: p.seccion1_evento_traumatico ? 'Si — se identifico un acontecimiento traumatico severo, se continuo con las secciones II a IV.' : 'No — el cuestionario concluye aqui, segun la metodologia oficial.' })
+    );
+    if (p.seccion1_evento_traumatico) {
+      hijos.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            filaTabla(['Seccion', 'Resultado'], true),
+            filaTabla(['Seccion II (algun si)', p.seccion2_algun_si ? 'Si' : 'No']),
+            filaTabla(['Seccion III (conteo)', String(p.seccion3_conteo_si)]),
+            filaTabla(['Seccion IV (conteo)', String(p.seccion4_conteo_si)]),
+          ],
+        }),
+        new Paragraph({ text: '' }),
+        new Paragraph({ text: 'Criterios disparados', heading: HeadingLevel.HEADING_3 }),
+        ...((p.criterios_disparados && p.criterios_disparados.length > 0)
+          ? p.criterios_disparados.map((c) => new Paragraph({ text: '• ' + (ETIQUETA_CRITERIO[c] || c) }))
+          : [new Paragraph({ text: 'Ninguno.' })])
+      );
+    }
+  });
+
+  const documento = new Document({ sections: [{ children: hijos }] });
+  const blob = await Packer.toBlob(documento);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'reporte-tecnico-guia1-' + nombreArchivoSufijo() + '.docx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =======================================================================
+// UI: wiring, arranque
+// =======================================================================
+function mostrarToast(msg) {
+  const existente = document.querySelector('.toast');
+  if (existente) existente.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3000);
+}
+
+function envolverConToast(fn, mensajeExito) {
+  return async function () {
+    try {
+      await fn();
+      mostrarToast(mensajeExito);
+    } catch (e) {
+      console.error(e);
+      mostrarToast('No se pudo generar el archivo. Revisa la consola.');
+    }
+  };
+}
+
+function inicializarEventos() {
+  document.getElementById('btn-pdf-ejecutivo').addEventListener('click', envolverConToast(() => generarPDF('ejecutivo'), 'PDF Ejecutivo generado.'));
+  document.getElementById('btn-pdf-tecnico').addEventListener('click', envolverConToast(() => generarPDF('tecnico'), 'PDF Tecnico generado.'));
+  document.getElementById('btn-excel').addEventListener('click', envolverConToast(() => generarExcel(), 'Excel generado.'));
+  document.getElementById('btn-word').addEventListener('click', envolverConToast(() => generarWord(), 'Word generado.'));
+
+  document.getElementById('btn-cargar-seleccion').addEventListener('click', cargarSeleccion);
+  document.getElementById('campo-busqueda').addEventListener('input', () => renderListaPersonas(false));
+  document.getElementById('btn-seleccionar-todos').addEventListener('click', function() {
+    document.querySelectorAll('#lista-personas input[type="checkbox"]').forEach((el) => { el.checked = true; });
+  });
+  document.getElementById('btn-limpiar-seleccion').addEventListener('click', function() {
+    document.querySelectorAll('#lista-personas input[type="checkbox"]').forEach((el) => { el.checked = false; });
+  });
+}
+
+function iniciar() {
+  inicializarEventos();
+  habilitarBotonesReporte(false);
+  cargarResultados();
+}
+iniciar();
+</script>
+</body>
+</html>
