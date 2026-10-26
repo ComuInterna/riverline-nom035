@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Riverline · Admin NOM-035 · Reportes</title>
+<title>NOM-035 · Admin · Reportes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -77,6 +77,28 @@
     .btn-mini,.btn-secundario{background:#1b1c22;}
     .tarjeta-icono{background:#26282f;}
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+  .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -84,7 +106,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Admin · NOM-035 · Reportes</small></span>
+      <span>NOM-035<br><small>Admin · Reportes</small></span>
     </div>
     <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
   </header>
@@ -431,7 +453,7 @@ function construirDocDefinicionPDF(tipo, centros, periodo) {
   const nombresCentros = centros.map((c) => c.nombreCentro).join(', ');
 
   const portada = [
-    { text: 'Riverline', style: 'marca' },
+    { text: 'NOM-035', style: 'marca' },
     { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo NOM-035' : 'Reporte Tecnico NOM-035', style: 'tituloPortada', margin: [0, 60, 0, 6] },
     { text: 'Identificacion de riesgo psicosocial · Guia de Referencia II y III', style: 'subtituloPortada' },
     { text: 'Centros incluidos: ' + nombresCentros, margin: [0, 30, 0, 2], style: 'metaPortada' },
@@ -519,7 +541,7 @@ function construirDocDefinicionPDF(tipo, centros, periodo) {
   }
 
   return {
-    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' NOM-035 - Riverline' },
+    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' NOM-035' },
     pageMargins: [40, 50, 40, 50],
     content: contenido,
     styles: {
@@ -618,7 +640,7 @@ async function generarWord() {
   }
 
   const hijos = [
-    new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'NOM-035', heading: HeadingLevel.TITLE }),
     new Paragraph({ text: 'Reporte Tecnico NOM-035 · Guia de Referencia II y III', heading: HeadingLevel.HEADING_1 }),
     new Paragraph({ text: 'Centros incluidos: ' + nombresCentros }),
     new Paragraph({ text: 'Periodo: ' + estado.periodo + '   ·   Generado: ' + fechaGeneracion }),
@@ -705,7 +727,7 @@ function generarPowerPoint() {
   // Portada
   let slide = pres.addSlide();
   slide.background = { color: '15161A' };
-  slide.addText('Riverline', { x: 0.5, y: 0.5, fontSize: 14, bold: true, color: 'E50D2E' });
+  slide.addText('NOM-035', { x: 0.5, y: 0.5, fontSize: 14, bold: true, color: 'E50D2E' });
   slide.addText('Reporte Ejecutivo NOM-035', { x: 0.5, y: 1.9, fontSize: 32, bold: true, color: 'FFFFFF' });
   slide.addText('Centros: ' + nombresCentros, { x: 0.5, y: 2.75, w: 9, fontSize: 13, color: 'C7C9D1' });
   slide.addText('Periodo ' + estado.periodo + '  ·  Generado: ' + fechaGeneracion + '  ·  Respuestas anonimas: ' + totalRespuestas, { x: 0.5, y: 3.3, fontSize: 11, color: '8A8D97' });

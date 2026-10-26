@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Riverline · Admin NOM-035 · Reportes Guía I</title>
+<title>NOM-035 · Admin · Reportes Guía I</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -90,6 +90,35 @@
     .lista-personas{border-color:#26282f;}
     .persona-check{border-color:#26282f;}
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+  .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+
+  .badge-clinico.si{ color:#b80a24; }
+  .badge-clinico.no{ color:#146c3a; }
+  @media (prefers-color-scheme: dark){
+    .badge-clinico.si{ background:#3a1a21; color:#ff8a9b; }
+    .badge-clinico.no{ background:#173524; color:#7fe0a3; }
+  }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -97,7 +126,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Admin · NOM-035 · Reportes Guía I</small></span>
+      <span>NOM-035<br><small>Admin · Reportes Guía I</small></span>
     </div>
     <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
   </header>
@@ -365,7 +394,7 @@ function construirDocDefinicionPDF(tipo) {
   const personas = estado.seleccionados;
 
   const portada = [
-    { text: 'Riverline', style: 'marca' },
+    { text: 'NOM-035', style: 'marca' },
     { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo — Guia I' : 'Reporte Tecnico — Guia I', style: 'tituloPortada', margin: [0, 60, 0, 6] },
     { text: 'Tamizaje de acontecimientos traumaticos severos · Individual y confidencial', style: 'subtituloPortada' },
     { text: 'Ciclo: ' + estado.cicloNombre, margin: [0, 30, 0, 2], style: 'metaPortada' },
@@ -430,7 +459,7 @@ function construirDocDefinicionPDF(tipo) {
   }
 
   return {
-    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' Guia I - Riverline' },
+    info: { title: (tipo === 'ejecutivo' ? 'Reporte Ejecutivo' : 'Reporte Tecnico') + ' Guia I - NOM-035' },
     pageMargins: [40, 50, 40, 50],
     content: contenido,
     styles: {
@@ -497,7 +526,7 @@ async function generarWord() {
   }
 
   const hijos = [
-    new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'NOM-035', heading: HeadingLevel.TITLE }),
     new Paragraph({ text: 'Reporte Tecnico — Guia I (tamizaje individual)', heading: HeadingLevel.HEADING_1 }),
     new Paragraph({ text: 'Ciclo: ' + estado.cicloNombre + '   ·   Colaboradores incluidos: ' + personas.length + '   ·   Generado: ' + fechaGeneracion }),
     new Paragraph({ text: 'CONFIDENCIAL — uso exclusivo de Desarrollo Humano / seguimiento clinico.' }),

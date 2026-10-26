@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Riverline · Admin NOM-035 · Historico</title>
+<title>NOM-035 · Admin · Historico</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -63,6 +63,40 @@
     .panel{background:#1b1c22;}
     .selector-comparar select,select.selector-centro{background:#1b1c22;color:var(--negro);}
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+  .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+
+  :root{ --txt-nulo:#146c3a; --txt-bajo:#3f6a24; --txt-medio:#7a5a0a; --txt-alto:#9a4a0a; --txt-muy_alto:#b80a24; }
+  @media (prefers-color-scheme: dark){
+    :root{ --txt-nulo:#6fe0a0; --txt-bajo:#a8dc78; --txt-medio:#efce78; --txt-alto:#ffa05c; --txt-muy_alto:#ff8196; }
+  }
+
+  .flecha.mejora{ color:#146c3a; }
+  .flecha.empeora{ color:#b80a24; }
+  @media (prefers-color-scheme: dark){
+    .flecha.mejora{ background:#173524; color:#7fe0a3; }
+    .flecha.empeora{ background:#3a1a21; color:#ff8a9b; }
+  }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -70,7 +104,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Admin · NOM-035 · Historico</small></span>
+      <span>NOM-035<br><small>Admin · Historico</small></span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
@@ -189,6 +223,9 @@ function catalogoActivo() {
   if (estado.guiaActiva === null) return null;
   return estado.guiaActiva === 'guia_2' ? CATALOGO_G2 : CATALOGO_G3;
 }
+
+// Color de TEXTO para etiquetas de nivel (variables CSS con contraste AA en claro y oscuro).
+function colorTextoNivel(nivel) { return 'var(--txt-' + nivel + ')'; }
 
 function colorNivel(nivel) {
   return { nulo: '#1f8a4c', bajo: '#6fae4a', medio: '#c99a2e', alto: '#e2711d', muy_alto: '#e50d2e' }[nivel] || '#888';
@@ -395,8 +432,8 @@ function renderComparativo() {
   const filasCategorias = comparativo.categorias.map(function(c) {
     return '<tr>' +
     '<td>' + c.nombre + (c.cambioDeNivel ? ' <span style="color:var(--gris-500);font-size:11px;">(cambio de nivel)</span>' : '') + '</td>' +
-    '<td>' + c.puntajeA + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelA) + '22;color:' + colorNivel(c.nivelA) + ';">' + NIVEL_ETIQUETA[c.nivelA] + '</span></td>' +
-    '<td>' + c.puntajeB + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelB) + '22;color:' + colorNivel(c.nivelB) + ';">' + NIVEL_ETIQUETA[c.nivelB] + '</span></td>' +
+    '<td>' + c.puntajeA + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelA) + '22;color:' + colorTextoNivel(c.nivelA) + ';">' + NIVEL_ETIQUETA[c.nivelA] + '</span></td>' +
+    '<td>' + c.puntajeB + ' <span class="badge-nivel" style="background:' + colorNivel(c.nivelB) + '22;color:' + colorTextoNivel(c.nivelB) + ';">' + NIVEL_ETIQUETA[c.nivelB] + '</span></td>' +
     '<td><span class="flecha ' + c.tendencia + '">' + iconoFlecha(c.tendencia) + (c.diferencia > 0 ? '+' : '') + c.diferencia + '</span></td>' +
     '</tr>';
   }).join('');
@@ -416,7 +453,7 @@ function renderTablaAplicaciones() {
     '<td>' + h.fecha + '</td>' +
     '<td>' + h.totalRespuestas + '</td>' +
     '<td>' + h.global.puntaje + '</td>' +
-    '<td><span class="badge-nivel" style="background:' + colorNivel(h.global.nivel_riesgo) + '22;color:' + colorNivel(h.global.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[h.global.nivel_riesgo] + '</span></td>' +
+    '<td><span class="badge-nivel" style="background:' + colorNivel(h.global.nivel_riesgo) + '22;color:' + colorTextoNivel(h.global.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[h.global.nivel_riesgo] + '</span></td>' +
     '</tr>';
   }).join('');
   contenedor.innerHTML =

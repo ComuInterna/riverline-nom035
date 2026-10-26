@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Riverline · Admin NOM-035 · Analisis</title>
+<title>NOM-035 · Admin · Analisis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -85,6 +85,33 @@
     select.selector-periodo{background:#1b1c22;color:var(--negro);}
     .accion-oficial{background:#26282f;}
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+  .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+
+  :root{ --txt-nulo:#146c3a; --txt-bajo:#3f6a24; --txt-medio:#7a5a0a; --txt-alto:#9a4a0a; --txt-muy_alto:#b80a24; }
+  @media (prefers-color-scheme: dark){
+    :root{ --txt-nulo:#6fe0a0; --txt-bajo:#a8dc78; --txt-medio:#efce78; --txt-alto:#ffa05c; --txt-muy_alto:#ff8196; }
+  }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -92,7 +119,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Admin · NOM-035 · Analisis</small></span>
+      <span>NOM-035<br><small>Admin · Analisis</small></span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span id="pill-demo" class="pill-demo" style="display:none;">Modo demo</span>
@@ -450,6 +477,9 @@ function generarResultadosDemo() {
 const estado = { resultados: null, centroActivo: null, guiaActiva: 'guia_3' };
 window.estado = estado;
 
+// Color de TEXTO para etiquetas de nivel (variables CSS con contraste AA en claro y oscuro).
+function colorTextoNivel(nivel) { return 'var(--txt-' + nivel + ')'; }
+
 function colorNivel(nivel) {
   return getComputedStyle(document.documentElement).getPropertyValue('--' + nivel).trim() || '#999';
 }
@@ -490,7 +520,7 @@ function renderGauge(global) {
     '<line x1="100" y1="100" x2="' + agujaX + '" y2="' + agujaY + '" stroke="' + color + '" stroke-width="4" stroke-linecap="round"/>' +
     '<circle cx="100" cy="100" r="6" fill="' + color + '"/></svg>' +
     '<div class="gauge-cifra">' + global.puntaje + '</div>' +
-    '<div class="gauge-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[global.nivel_riesgo] + '</div>' +
+    '<div class="gauge-nivel" style="background:' + color + '22;color:' + colorTextoNivel(global.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[global.nivel_riesgo] + '</div>' +
     '<div class="gauge-detalle">Calificacion final del cuestionario (Cfinal), segun los rangos oficiales de la ' + cat.etiqueta + '.</div>';
 }
 
@@ -534,7 +564,7 @@ function renderRanking(ranking) {
         '<div class="ranking-categoria">' + (nombreCategoria.get(d.categoria_id) || '') + '</div>' +
         '<div class="ranking-barra-track"><div class="ranking-barra-fill" style="width:' + anchoBarra + '%;background:' + color + ';"></div></div>' +
       '</div>' +
-      '<span class="badge-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[d.nivel_riesgo] + '</span>' +
+      '<span class="badge-nivel" style="background:' + color + '22;color:' + colorTextoNivel(d.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[d.nivel_riesgo] + '</span>' +
     '</div>';
   }).join('');
 }
@@ -549,7 +579,7 @@ function renderHeatmap(heatmap) {
     const celdas = fila.celdas.map(function(c) {
       if (!c.suficiente) return '<td><div class="celda-insuficiente">Muestra insuficiente</div></td>';
       const color = colorNivel(c.nivel_riesgo);
-      return '<td><div class="celda-nivel" style="background:' + color + '22;color:' + color + ';">' + NIVEL_ETIQUETA[c.nivel_riesgo] + '</div></td>';
+      return '<td><div class="celda-nivel" style="background:' + color + '22;color:' + colorTextoNivel(c.nivel_riesgo) + ';">' + NIVEL_ETIQUETA[c.nivel_riesgo] + '</div></td>';
     }).join('');
     return '<tr><td>' + fila.departamento + ' <span style="color:var(--gris-500);font-weight:500;">(n=' + fila.n + ')</span></td>' + celdas + '</tr>';
   }).join('');

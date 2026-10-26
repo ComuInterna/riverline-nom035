@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>Riverline · Encuesta NOM-035</title>
+<title>Encuesta NOM-035</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -365,6 +365,36 @@
     .opcion.seleccionada{ background:#301419; }
     .aviso-identificado{ background:#3a2f14; }
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+
+  .pill-confidencial{ color:#146c3a; }
+  .pill-confidencial.no-anonima{ color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){
+    .pill-confidencial{ background:#123420; color:#7fe0a3; }
+    .pill-confidencial.no-anonima{ background:#3a2f14; color:#f2d27c; }
+    .error-msg{ color:#ff7a8c; }
+    .seccion-encabezado{ color:#ff7a8c; }
+    .opcion.seleccionada{ color:#ff9aa8; }
+  }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -373,7 +403,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Cultura Riverline · NOM-035</small></span>
+      <span>NOM-035<br><small>Factores de riesgo psicosocial</small></span>
     </div>
     <div class="pill-confidencial" id="pill-confidencial">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg>
@@ -669,6 +699,8 @@ const estado = {
   esJefe: null,
   respuestas: {},
   pasoActual: 0,
+  itemLocal: 0,      // reactivo dentro de la seccion actual (para retomar justo donde se quedo)
+  itemInicial: 0,    // uso unico: reactivo con el que abre la seccion al retomar
 };
 
 const main = document.getElementById('main');
@@ -717,6 +749,7 @@ function guardarBuffer() {
     esJefe: estado.esJefe,
     respuestas: estado.respuestas,
     pasoActual: estado.pasoActual,
+    itemLocal: estado.itemLocal || 0,
     token: estado.tokenAvance || null,
   };
   localStorage.setItem(claveBuffer(estado.guiaActual), JSON.stringify(payload));
@@ -987,15 +1020,42 @@ function iniciarGuia(guia, retomarBuffer) {
     estado.esJefe = buffer.esJefe;
     estado.respuestas = buffer.respuestas;
     estado.pasoActual = buffer.pasoActual;
+    estado.itemInicial = 0;
+    if (Number.isInteger(buffer.itemLocal)) {
+      estado.itemInicial = buffer.itemLocal;
+    } else {
+      // Avance guardado antes de que se registrara la posicion exacta:
+      // se abre en el primer reactivo que aun no ha contestado.
+      const pos = primeraPosicionSinResponder(buffer.pasoActual);
+      estado.pasoActual = pos.paso;
+      estado.itemInicial = pos.item;
+    }
   } else {
     estado.inicio = Date.now();
     estado.atiendeClientes = null;
     estado.esJefe = null;
     estado.respuestas = {};
     estado.pasoActual = 0;
+    estado.itemInicial = 0;
+    estado.itemLocal = 0;
     guardarBuffer();
   }
   renderEncuesta();
+}
+
+// Primer reactivo sin contestar a partir de un paso (para avances guardados sin posicion exacta).
+function primeraPosicionSinResponder(desdePaso) {
+  for (let i = Math.max(0, desdePaso || 0); i < estado.pasos.length; i++) {
+    const paso = estado.pasos[i];
+    if (!pasoAplica(paso)) continue;
+    if (paso.tipo === 'sino') {
+      if (estado[paso.clave] === null || estado[paso.clave] === undefined) return { paso: i, item: 0 };
+    } else {
+      const idx = paso.items.findIndex((n) => estado.respuestas[n] === undefined);
+      if (idx >= 0) return { paso: i, item: idx };
+    }
+  }
+  return { paso: desdePaso || 0, item: 0 };
 }
 
 // ---------------------------------------------------------------------
@@ -1015,8 +1075,10 @@ function renderEncuesta() {
   if (estado.pasoActual >= estado.pasos.length) { return renderRevision(); }
 
   const paso = estado.pasos[estado.pasoActual];
-  if (paso.tipo === 'sino') return renderPasoSiNo(paso);
-  return renderPasoSeccion(paso);
+  if (paso.tipo === 'sino') { estado.itemInicial = 0; return renderPasoSiNo(paso); }
+  const itemInicial = Math.min(Math.max(estado.itemInicial || 0, 0), paso.items.length - 1);
+  estado.itemInicial = 0;   // solo aplica al abrir; despues se avanza con normalidad
+  return renderPasoSeccion(paso, itemInicial);
 }
 
 function renderBarra() {
@@ -1027,27 +1089,34 @@ function renderBarra() {
     <div class="barra-progreso-wrap">
       <div class="barra-progreso-fila">
         <span>${porcentaje}% completado</span>
-        <span id="cronometro">00:00</span>
+        <span id="cronometro">${textoCronometro()}</span>
       </div>
       <div class="barra-progreso-track"><div class="barra-progreso-fill" style="width:${porcentaje}%"></div></div>
     </div>
   `;
 }
 
+function textoCronometro() {
+  const seg = Math.max(0, Math.floor((Date.now() - estado.inicio) / 1000));
+  const mm = String(Math.floor(seg / 60)).padStart(2, '0');
+  const ss = String(seg % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
 function iniciarCronometro() {
   const el = document.getElementById('cronometro');
   if (!el) return;
+  el.textContent = textoCronometro();   // al instante: sin pasar por 00:00 al cambiar de pregunta
   clearInterval(window.__cronoInterval);
   window.__cronoInterval = setInterval(() => {
-    const seg = Math.floor((Date.now() - estado.inicio) / 1000);
-    const mm = String(Math.floor(seg / 60)).padStart(2, '0');
-    const ss = String(seg % 60).padStart(2, '0');
     const target = document.getElementById('cronometro');
-    if (target) target.textContent = `${mm}:${ss}`;
+    if (target) target.textContent = textoCronometro();
   }, 1000);
 }
 
 function renderPasoSiNo(paso) {
+  estado.itemLocal = 0;
+  guardarBuffer();
   const valorActual = estado[paso.clave];
   main.innerHTML = `
     ${renderBarra()}
@@ -1094,6 +1163,8 @@ function renderPasoSiNo(paso) {
 // Cada sección se responde reactivo por reactivo dentro del mismo paso.
 // tipoEscala determina si se muestran 5 opciones (Likert) o 2 (Sí/No).
 function renderPasoSeccion(paso, indiceItemLocal = 0) {
+  estado.itemLocal = indiceItemLocal;   // se guarda para retomar en este mismo reactivo
+  guardarBuffer();
   const def = definicionActual();
   const numero = paso.items[indiceItemLocal];
   const respuestaActual = estado.respuestas[numero];
@@ -1251,7 +1322,7 @@ function renderGracias() {
         <h1 class="titulo">${quedan > 0 ? '¡Gracias! Esa ya quedó.' : 'Gracias por participar'}</h1>
         <p class="subtitulo">${quedan > 0
           ? `Aún te ${quedan === 1 ? 'falta 1 encuesta' : `faltan ${quedan} encuestas`} por contestar.`
-          : 'Tus respuestas fueron registradas. Ayudarán a mejorar nuestro entorno de trabajo en Riverline.'}</p>
+          : 'Tus respuestas fueron registradas. Ayudarán a mejorar nuestro entorno de trabajo.'}</p>
         ${quedan > 0 ? '<button id="btn-continuar" class="btn btn-primario">Continuar</button>' : ''}
       </div>
     </div>

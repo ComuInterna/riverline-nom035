@@ -100,7 +100,7 @@ async function probarWord() {
     });
   }
   const hijos = [
-    new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'NOM-035', heading: HeadingLevel.TITLE }),
     new Paragraph({ text: 'Reporte Tecnico NOM-035' }),
   ];
   centrosCombinados.forEach((c, i) => {
@@ -128,7 +128,7 @@ async function probarPowerPoint() {
   const PptxGenJS = PptxGenJSMod.default || PptxGenJSMod;
   const pres = new PptxGenJS();
   let slide = pres.addSlide();
-  slide.addText('Riverline', { x: 0.5, y: 0.5, fontSize: 14, bold: true });
+  slide.addText('NOM-035', { x: 0.5, y: 0.5, fontSize: 14, bold: true });
   slide.addText('Reporte Ejecutivo NOM-035 — 2 centros', { x: 0.5, y: 2, fontSize: 32, bold: true });
 
   centrosCombinados.forEach((c) => {

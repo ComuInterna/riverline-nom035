@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Riverline · Admin NOM-035 · Ciclos</title>
+<title>NOM-035 · Admin · Ciclos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -85,6 +85,35 @@
     .badge.abierto{background:#173524;color:#5fd08b;}
     .badge.cerrado{background:#26282f;}
   }
+
+
+
+
+
+
+  /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
+  :root{ color-scheme: light dark; --gris-500:#666973; }
+  ::placeholder{ color:var(--gris-500); opacity:1; }
+  input, select, textarea{ color:var(--negro); }
+  .btn-primario{ color:#fff; }
+  .btn-primario:disabled{ opacity:.55; }
+  .toast{ background:#15161a; color:#fff; border:1px solid #3a3d47; }
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-500:#a3a6b0; }
+    select option, select optgroup{ background:#1b1c22; color:#eceef1; }
+    .toast{ background:#2b2e38; color:#f2f2f4; border-color:#4a4e5a; }
+    .pill-demo{ background:#3a3115; color:#f2d27c; }
+  }
+  .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
+  @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+
+  .badge.abierto{ color:#146c3a; }
+  .aviso-error{ color:#b80a24; }
+  @media (prefers-color-scheme: dark){
+    .badge.abierto{ background:#173524; color:#7fe0a3; }
+    .aviso-error{ color:#ff8a9b; }
+  }
+  /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
 <body>
@@ -92,7 +121,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark"></span>
-      <span>Riverline<br><small>Admin · NOM-035 · Ciclos de aplicación</small></span>
+      <span>NOM-035<br><small>Admin · Ciclos de aplicación</small></span>
     </div>
     <div class="acciones-top">
       <span id="pill-demo" class="pill-demo oculto">Modo demo</span>
@@ -434,7 +463,7 @@ function construirLibroExpediente(exp, ciclo) {
   });
 
   const cabecera = [
-    ['Expediente NOM-035 — Riverline'],
+    ['Expediente NOM-035'],
     ['Ciclo', exp.ciclo ? exp.ciclo.nombre : (ciclo ? ciclo.nombre : '')],
     ['Estado', exp.ciclo && exp.ciclo.estado === 'cerrado' ? 'Cerrado' : 'Abierto (avance parcial)'],
     ['Inicio', exp.ciclo ? fechaCorta(exp.ciclo.fecha_inicio) : ''],
