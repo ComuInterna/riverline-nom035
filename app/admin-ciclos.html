@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riverline · Admin NOM-035 · Ciclos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --rojo:#e50d2e; --rojo-oscuro:#b80a24; --negro:#15161a;
+    --gris-900:#1f2128; --gris-700:#4a4d57; --gris-500:#8a8d97;
+    --gris-200:#e7e8ec; --gris-100:#f4f4f7; --blanco:#fff;
+    --verde:#1f8a4c; --ambar:#c99a2e;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow: 0 1px 2px rgba(21,22,26,.04), 0 8px 24px rgba(21,22,26,.06);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--gris-100);color:var(--negro);-webkit-font-smoothing:antialiased;}
+  .layout{max-width:1040px;margin:0 auto;padding:0 24px 60px;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 0 20px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+  .brand-mark{width:10px;height:10px;border-radius:3px;background:var(--rojo);transform:rotate(45deg);flex-shrink:0;}
+  .brand small{display:block;font-weight:500;font-size:11px;color:var(--gris-500);}
+  .acciones-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .pill-demo{font-size:11px;font-weight:700;background:#fbf3dd;color:var(--ambar);padding:5px 10px;border-radius:100px;}
+  .oculto{display:none !important;}
+
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:13.5px;border-radius:var(--radius-sm);padding:11px 16px;text-decoration:none;display:inline-flex;align-items:center;transition:transform .1s ease, background .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primario{background:var(--rojo);color:#fff;}
+  .btn-primario:hover:not(:disabled){background:var(--rojo-oscuro);}
+  .btn-secundario{background:#fff;border:1.5px solid var(--gris-200);color:var(--negro);}
+  .btn-secundario:hover:not(:disabled){border-color:var(--gris-500);}
+  .btn-peligro{background:#fff;border:1.5px solid #f3b9c1;color:var(--rojo-oscuro);}
+  .btn-peligro:hover:not(:disabled){background:#fde8ea;}
+  .btn-fila{padding:7px 11px;font-size:12px;}
+
+  .panel{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;}
+  .panel-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .panel-titulo{font-size:16px;font-weight:800;margin:0;}
+  .panel-sub{font-size:12.5px;color:var(--gris-500);margin-top:3px;}
+  .badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;}
+  .badge.abierto{background:#e3f3e8;color:var(--verde);}
+  .badge.cerrado{background:var(--gris-100);color:var(--gris-700);}
+
+  .grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;}
+  .kpi{background:var(--gris-100);border-radius:var(--radius-md);padding:14px;}
+  .kpi-valor{font-size:22px;font-weight:800;}
+  .kpi-etiqueta{font-size:11.5px;color:var(--gris-500);font-weight:600;margin-top:2px;}
+  .acciones-panel{display:flex;gap:8px;flex-wrap:wrap;}
+
+  table.tabla{width:100%;border-collapse:collapse;font-size:13px;}
+  .tabla th{text-align:left;color:var(--gris-500);font-size:11.5px;font-weight:700;padding:8px;border-bottom:1.5px solid var(--gris-100);white-space:nowrap;}
+  .tabla td{padding:11px 8px;border-bottom:1px solid var(--gris-100);vertical-align:middle;}
+  .tabla td.acciones{display:flex;gap:6px;flex-wrap:wrap;}
+  .contenedor-scroll{overflow-x:auto;}
+  .vacio{color:var(--gris-500);font-size:13px;padding:6px 0;}
+
+  .modal-fondo{position:fixed;inset:0;background:rgba(10,11,14,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .modal{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:24px;width:100%;max-width:520px;max-height:90vh;overflow:auto;}
+  .modal h3{margin:0 0 6px;font-size:17px;font-weight:800;}
+  .modal p,.modal li{font-size:13px;color:var(--gris-700);line-height:1.5;}
+  .modal ul{padding-left:18px;margin:8px 0 14px;}
+  .modal label{display:block;font-size:12px;font-weight:700;color:var(--gris-500);margin:12px 0 4px;}
+  .modal input[type=text]{width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);font-family:var(--font);font-size:14px;background:#fff;color:var(--negro);}
+  .modal-acciones{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .aviso-error{color:var(--rojo-oscuro);font-size:12.5px;font-weight:600;margin-top:8px;min-height:16px;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--negro);color:#fff;padding:13px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:100;}
+
+  @media (prefers-color-scheme: dark){
+    :root{ --gris-100:#121317; --gris-200:#26282f; --negro:#f2f2f4; --gris-700:#b7b9c2; --gris-500:#7c7f89; }
+    body{background:#0c0d10;}
+    .panel,.modal{background:#1b1c22;}
+    .kpi{background:#121317;}
+    .btn-secundario{background:#1b1c22;color:#eceef1;}
+    .btn-peligro{background:#1b1c22;color:#ff7a8c;border-color:#5a2630;}
+    .btn-peligro:hover:not(:disabled){background:#2a1a1e;}
+    .modal input[type=text]{background:#121317;color:#eceef1;}
+    .badge.abierto{background:#173524;color:#5fd08b;}
+    .badge.cerrado{background:#26282f;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span>Riverline<br><small>Admin · NOM-035 · Ciclos de aplicación</small></span>
+    </div>
+    <div class="acciones-top">
+      <span id="pill-demo" class="pill-demo oculto">Modo demo</span>
+      <a class="btn btn-secundario" href="admin-seguimiento.html">← Seguimiento</a>
+    </div>
+  </header>
+
+  <section class="panel" id="panel-actual">
+    <p class="vacio">Cargando…</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-titulo">Ciclos cerrados</h2>
+        <div class="panel-sub">Cada ciclo cerrado conserva todos sus resultados. Aquí descargas su expediente.</div>
+      </div>
+    </div>
+    <div id="lista-cerrados" class="contenedor-scroll"><p class="vacio">Cargando…</p></div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   CICLOS DE APLICACION
+   Cerrar un ciclo archiva los resultados (sin perderlos) y reinicia el
+   seguimiento para volver a aplicar la NOM-035. Toda la logica de datos
+   vive en RPCs admin-only (migracion 15); aqui solo se muestra y se
+   arma el expediente en Excel.
+   ===================================================================== */
+const SUPABASE_URL = 'https://beywoewggsbtrmjilcyg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleXdvZXdnZ3NidHJtamlsY3lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NDEsImV4cCI6MjEwMDkyNTg0MX0.O77dU5yrwjJx7BprncHEx8seexv3Tg-2S2qv7isxSDk';
+const MODO_DEMO = SUPABASE_URL.includes('TU-PROYECTO');
+
+let supabaseClient = null;
+if (!MODO_DEMO) {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const estado = { ciclos: [], errorCarga: null };
+window.estado = estado;
+
+// ---------------------------------------------------------------------
+// Utilidades
+// ---------------------------------------------------------------------
+function escapar(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function fechaCorta(f) {
+  return f ? new Date(f).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+}
+function mostrarToast(msg) {
+  const existente = document.querySelector('.toast');
+  if (existente) existente.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3500);
+}
+function mensajeDeError(e, porDefecto) {
+  const m = e && e.message ? e.message : '';
+  if (m.includes('No autorizado')) return 'Tu sesión no tiene permisos de administrador, o expiró. Entra de nuevo desde la página de inicio.';
+  if (m && !m.includes('JWT') && m.length < 160) return m;
+  return porDefecto;
+}
+
+// ---------------------------------------------------------------------
+// Datos
+// ---------------------------------------------------------------------
+function ciclosDemo() {
+  return [
+    { id: 'demo-2', nombre: 'Ciclo demo 2026', estado: 'abierto', fecha_inicio: new Date().toISOString(), fecha_cierre: null,
+      total_colaboradores: 57, g1_asignados: 40, g1_contestaron: 12, g2_asignados: 57, g2_contestaron: 20, g3_asignados: 0, g3_contestaron: 0,
+      resultados_g1: 12, aplicaciones_g2: 20, aplicaciones_g3: 0 },
+    { id: 'demo-1', nombre: 'Piloto 2025', estado: 'cerrado', fecha_inicio: '2025-03-01T00:00:00Z', fecha_cierre: '2025-04-15T00:00:00Z',
+      total_colaboradores: 55, g1_asignados: 38, g1_contestaron: 38, g2_asignados: 55, g2_contestaron: 51, g3_asignados: 0, g3_contestaron: 0,
+      resultados_g1: 38, aplicaciones_g2: 51, aplicaciones_g3: 0 },
+  ];
+}
+
+async function cargarCiclos() {
+  estado.errorCarga = null;
+  if (MODO_DEMO) {
+    document.getElementById('pill-demo').classList.remove('oculto');
+    estado.ciclos = ciclosDemo();
+    return;
+  }
+  const resp = await supabaseClient.rpc('admin_listar_ciclos');
+  if (resp.error) {
+    console.error('admin_listar_ciclos:', resp.error);
+    estado.errorCarga = mensajeDeError(resp.error, 'No se pudieron cargar los ciclos. ¿Ya corriste la migración 15 en Supabase?');
+    estado.ciclos = [];
+    return;
+  }
+  estado.ciclos = resp.data || [];
+}
+
+// ---------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------
+function kpi(valor, etiqueta) {
+  return '<div class="kpi"><div class="kpi-valor">' + escapar(valor) + '</div><div class="kpi-etiqueta">' + escapar(etiqueta) + '</div></div>';
+}
+
+function renderActual() {
+  const cont = document.getElementById('panel-actual');
+  if (estado.errorCarga) {
+    cont.innerHTML = '<p style="color:var(--rojo-oscuro);font-size:13px;font-weight:600;">' + escapar(estado.errorCarga) + '</p>';
+    return;
+  }
+  const c = estado.ciclos.find(function(x){ return x.estado === 'abierto'; });
+  if (!c) { cont.innerHTML = '<p class="vacio">No hay un ciclo abierto.</p>'; return; }
+
+  cont.innerHTML =
+    '<div class="panel-header">' +
+      '<div><h2 class="panel-titulo">' + escapar(c.nombre) + ' <span class="badge abierto">Ciclo actual</span></h2>' +
+      '<div class="panel-sub">Abierto desde ' + fechaCorta(c.fecha_inicio) + '</div></div>' +
+    '</div>' +
+    '<div class="grid-kpi">' +
+      kpi(c.total_colaboradores, 'Colaboradores') +
+      kpi(c.g1_contestaron + ' / ' + c.g1_asignados, 'Guía I contestadas') +
+      kpi(c.g2_contestaron + ' / ' + c.g2_asignados, 'Guía II contestadas') +
+      kpi(c.g3_contestaron + ' / ' + c.g3_asignados, 'Guía III contestadas') +
+    '</div>' +
+    '<div class="acciones-panel">' +
+      '<button class="btn btn-primario" id="btn-cerrar-ciclo">Cerrar ciclo y comenzar uno nuevo</button>' +
+      '<button class="btn btn-secundario" id="btn-avance-actual">Descargar avance (Excel)</button>' +
+    '</div>';
+
+  document.getElementById('btn-cerrar-ciclo').addEventListener('click', abrirModalCerrar);
+  document.getElementById('btn-avance-actual').addEventListener('click', function(){ descargarExpediente(c); });
+}
+
+function renderCerrados() {
+  const cont = document.getElementById('lista-cerrados');
+  const cerrados = estado.ciclos.filter(function(x){ return x.estado === 'cerrado'; });
+  if (cerrados.length === 0) {
+    cont.innerHTML = '<p class="vacio">Todavía no hay ciclos cerrados.</p>';
+    return;
+  }
+  cont.innerHTML =
+    '<table class="tabla"><thead><tr><th>Ciclo</th><th>Periodo</th><th>Guía I</th><th>Guía II</th><th>Guía III</th><th></th></tr></thead><tbody>' +
+    cerrados.map(function(c){
+      return '<tr>' +
+        '<td><strong>' + escapar(c.nombre) + '</strong></td>' +
+        '<td>' + fechaCorta(c.fecha_inicio) + ' – ' + fechaCorta(c.fecha_cierre) + '</td>' +
+        '<td>' + c.g1_contestaron + ' / ' + c.g1_asignados + '</td>' +
+        '<td>' + c.g2_contestaron + ' / ' + c.g2_asignados + '</td>' +
+        '<td>' + c.g3_contestaron + ' / ' + c.g3_asignados + '</td>' +
+        '<td class="acciones">' +
+          '<button class="btn btn-secundario btn-fila" data-accion="expediente" data-id="' + escapar(c.id) + '">Expediente (Excel)</button>' +
+          '<a class="btn btn-secundario btn-fila" href="admin-reportes-guia1.html">Reportes Guía I</a>' +
+          '<button class="btn btn-peligro btn-fila" data-accion="eliminar" data-id="' + escapar(c.id) + '">Eliminar</button>' +
+        '</td></tr>';
+    }).join('') + '</tbody></table>';
+
+  cont.querySelectorAll('[data-accion="expediente"]').forEach(function(b){
+    b.addEventListener('click', function(){ descargarExpediente(estado.ciclos.find(function(c){ return c.id === b.dataset.id; })); });
+  });
+  cont.querySelectorAll('[data-accion="eliminar"]').forEach(function(b){
+    b.addEventListener('click', function(){ abrirModalEliminar(estado.ciclos.find(function(c){ return c.id === b.dataset.id; })); });
+  });
+}
+
+function renderTodo() { renderActual(); renderCerrados(); }
+
+// ---------------------------------------------------------------------
+// Modales (con confirmacion escrita para acciones que no se deshacen)
+// ---------------------------------------------------------------------
+function abrirModal(html) {
+  cerrarModal();
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.id = 'modal-fondo';
+  fondo.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>';
+  fondo.addEventListener('click', function(e){ if (e.target === fondo) cerrarModal(); });
+  document.body.appendChild(fondo);
+  return fondo;
+}
+function cerrarModal() {
+  const f = document.getElementById('modal-fondo');
+  if (f) f.remove();
+}
+
+function sugerirNombres() {
+  const actual = estado.ciclos.find(function(x){ return x.estado === 'abierto'; });
+  const anio = new Date().getFullYear();
+  const cierra = actual && !/^ciclo inicial$/i.test(actual.nombre) ? actual.nombre : 'NOM-035 ' + anio;
+  const siguiente = 'NOM-035 ' + (cierra === 'NOM-035 ' + anio ? anio + 1 : anio);
+  return { cierra: cierra, siguiente: siguiente };
+}
+
+function abrirModalCerrar() {
+  const sug = sugerirNombres();
+  const fondo = abrirModal(
+    '<h3>Cerrar ciclo y comenzar uno nuevo</h3>' +
+    '<p>Todo lo contestado hasta hoy se guarda como un ciclo cerrado (no se pierde nada) y podrás descargar su expediente cuando quieras.</p>' +
+    '<ul>' +
+      '<li>Todos los colaboradores vuelven a <strong>"No contestó"</strong> y podrán contestar de nuevo.</li>' +
+      '<li>Las asignaciones manuales de Guía I no se arrastran al ciclo nuevo.</li>' +
+      '<li>Los resultados nuevos se guardarán en el ciclo nuevo.</li>' +
+    '</ul>' +
+    '<label for="nombre-cierra">Nombre del ciclo que cierras</label>' +
+    '<input type="text" id="nombre-cierra" value="' + escapar(sug.cierra) + '" />' +
+    '<label for="nombre-siguiente">Nombre del ciclo nuevo</label>' +
+    '<input type="text" id="nombre-siguiente" value="' + escapar(sug.siguiente) + '" />' +
+    '<label for="confirmar-texto">Para confirmar escribe <strong>CERRAR</strong></label>' +
+    '<input type="text" id="confirmar-texto" autocomplete="off" />' +
+    '<div class="aviso-error" id="modal-error"></div>' +
+    '<div class="modal-acciones">' +
+      '<button class="btn btn-secundario" id="modal-cancelar">Cancelar</button>' +
+      '<button class="btn btn-primario" id="modal-confirmar" disabled>Cerrar ciclo</button>' +
+    '</div>'
+  );
+  const confirmar = fondo.querySelector('#modal-confirmar');
+  fondo.querySelector('#confirmar-texto').addEventListener('input', function(e){
+    confirmar.disabled = e.target.value.trim().toUpperCase() !== 'CERRAR';
+  });
+  fondo.querySelector('#modal-cancelar').addEventListener('click', cerrarModal);
+  confirmar.addEventListener('click', async function(){
+    const cierra = fondo.querySelector('#nombre-cierra').value.trim();
+    const siguiente = fondo.querySelector('#nombre-siguiente').value.trim();
+    const err = fondo.querySelector('#modal-error');
+    if (!cierra || !siguiente) { err.textContent = 'Escribe los dos nombres.'; return; }
+    confirmar.disabled = true;
+    confirmar.textContent = 'Cerrando…';
+    try {
+      await cerrarCiclo(cierra, siguiente);
+      cerrarModal();
+      mostrarToast('Ciclo "' + cierra + '" cerrado. Ya puedes aplicar "' + siguiente + '".');
+    } catch (e) {
+      console.error(e);
+      err.textContent = mensajeDeError(e, 'No se pudo cerrar el ciclo. Revisa la consola.');
+      confirmar.disabled = false;
+      confirmar.textContent = 'Cerrar ciclo';
+    }
+  });
+}
+
+function abrirModalEliminar(ciclo) {
+  if (!ciclo) return;
+  const fondo = abrirModal(
+    '<h3>Eliminar ciclo "' + escapar(ciclo.nombre) + '"</h3>' +
+    '<p><strong>Esto borra para siempre</strong> todos los resultados de este ciclo (Guía I individual, Guía II/III anónimas y su seguimiento). ' +
+    'No se puede deshacer. Úsalo solo para ciclos de prueba. Si quieres conservarlo, descarga antes su expediente.</p>' +
+    '<label for="confirmar-texto">Para confirmar escribe el nombre del ciclo: <strong>' + escapar(ciclo.nombre) + '</strong></label>' +
+    '<input type="text" id="confirmar-texto" autocomplete="off" />' +
+    '<div class="aviso-error" id="modal-error"></div>' +
+    '<div class="modal-acciones">' +
+      '<button class="btn btn-secundario" id="modal-cancelar">Cancelar</button>' +
+      '<button class="btn btn-peligro" id="modal-confirmar" disabled>Eliminar definitivamente</button>' +
+    '</div>'
+  );
+  const confirmar = fondo.querySelector('#modal-confirmar');
+  fondo.querySelector('#confirmar-texto').addEventListener('input', function(e){
+    confirmar.disabled = e.target.value.trim().toLowerCase() !== ciclo.nombre.trim().toLowerCase();
+  });
+  fondo.querySelector('#modal-cancelar').addEventListener('click', cerrarModal);
+  confirmar.addEventListener('click', async function(){
+    confirmar.disabled = true;
+    confirmar.textContent = 'Eliminando…';
+    try {
+      await eliminarCiclo(ciclo);
+      cerrarModal();
+      mostrarToast('Ciclo "' + ciclo.nombre + '" eliminado.');
+    } catch (e) {
+      console.error(e);
+      fondo.querySelector('#modal-error').textContent = mensajeDeError(e, 'No se pudo eliminar el ciclo. Revisa la consola.');
+      confirmar.disabled = false;
+      confirmar.textContent = 'Eliminar definitivamente';
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Acciones
+// ---------------------------------------------------------------------
+async function cerrarCiclo(nombreCierra, nombreSiguiente) {
+  if (MODO_DEMO) {
+    const actual = estado.ciclos.find(function(c){ return c.estado === 'abierto'; });
+    actual.nombre = nombreCierra; actual.estado = 'cerrado'; actual.fecha_cierre = new Date().toISOString();
+    estado.ciclos.unshift({ id: 'demo-' + Date.now(), nombre: nombreSiguiente, estado: 'abierto', fecha_inicio: new Date().toISOString(), fecha_cierre: null,
+      total_colaboradores: actual.total_colaboradores, g1_asignados: 0, g1_contestaron: 0, g2_asignados: 0, g2_contestaron: 0, g3_asignados: 0, g3_contestaron: 0,
+      resultados_g1: 0, aplicaciones_g2: 0, aplicaciones_g3: 0 });
+    renderTodo();
+    return;
+  }
+  const resp = await supabaseClient.rpc('admin_cerrar_ciclo', { p_nombre: nombreCierra, p_nombre_siguiente: nombreSiguiente });
+  if (resp.error) throw resp.error;
+  await cargarCiclos();
+  renderTodo();
+}
+
+async function eliminarCiclo(ciclo) {
+  if (MODO_DEMO) {
+    estado.ciclos = estado.ciclos.filter(function(c){ return c.id !== ciclo.id; });
+    renderTodo();
+    return;
+  }
+  const resp = await supabaseClient.rpc('admin_eliminar_ciclo', { p_ciclo_id: ciclo.id });
+  if (resp.error) throw resp.error;
+  await cargarCiclos();
+  renderTodo();
+}
+
+// ---------------------------------------------------------------------
+// Expediente (Excel multi-hoja)
+// ---------------------------------------------------------------------
+const ETIQUETA_CRITERIO = {
+  seccion_2_algun_si: 'Sección II: al menos una respuesta afirmativa',
+  seccion_3_tres_o_mas_si: 'Sección III: 3 o más respuestas afirmativas',
+  seccion_4_dos_o_mas_si: 'Sección IV: 2 o más respuestas afirmativas',
+};
+const ETIQUETA_STATUS = { no_contesto: 'No contestó', en_proceso: 'En proceso', contesto: 'Contestó' };
+function etq(s) { return s == null ? 'No aplica' : (ETIQUETA_STATUS[s] || s); }
+
+/** Arma el libro de Excel a partir del JSON de admin_expediente_ciclo. Pura: no toca el DOM. */
+function construirLibroExpediente(exp, ciclo) {
+  const XLSX = window.XLSX;
+  const libro = XLSX.utils.book_new();
+  const seg = exp.seguimiento || [];
+
+  // --- Resumen por centro (calculado desde el seguimiento) ---
+  const porCentro = new Map();
+  seg.forEach(function(c){
+    const k = c.centro_trabajo || '(sin centro)';
+    if (!porCentro.has(k)) porCentro.set(k, { Centro: k, Colaboradores: 0, 'Guía I asignadas': 0, 'Guía I contestadas': 0, 'Guía II asignadas': 0, 'Guía II contestadas': 0, 'Guía III asignadas': 0, 'Guía III contestadas': 0 });
+    const f = porCentro.get(k);
+    f.Colaboradores++;
+    if (c.status_guia1 != null) f['Guía I asignadas']++;
+    if (c.status_guia1 === 'contesto') f['Guía I contestadas']++;
+    if (c.status_guia2 != null) f['Guía II asignadas']++;
+    if (c.status_guia2 === 'contesto') f['Guía II contestadas']++;
+    if (c.status != null) f['Guía III asignadas']++;
+    if (c.status === 'contesto') f['Guía III contestadas']++;
+  });
+
+  const cabecera = [
+    ['Expediente NOM-035 — Riverline'],
+    ['Ciclo', exp.ciclo ? exp.ciclo.nombre : (ciclo ? ciclo.nombre : '')],
+    ['Estado', exp.ciclo && exp.ciclo.estado === 'cerrado' ? 'Cerrado' : 'Abierto (avance parcial)'],
+    ['Inicio', exp.ciclo ? fechaCorta(exp.ciclo.fecha_inicio) : ''],
+    ['Cierre', exp.ciclo && exp.ciclo.fecha_cierre ? fechaCorta(exp.ciclo.fecha_cierre) : '—'],
+    ['Generado', fechaCorta(new Date().toISOString())],
+    ['Confidencial', 'Contiene datos individuales de Guía I. Uso exclusivo de Desarrollo Humano / seguimiento clínico.'],
+    [],
+  ];
+  const hojaResumen = XLSX.utils.aoa_to_sheet(cabecera);
+  XLSX.utils.sheet_add_json(hojaResumen, Array.from(porCentro.values()), { origin: 'A' + (cabecera.length + 1) });
+  XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+
+  // --- Seguimiento ---
+  const filasSeg = seg.map(function(c){
+    return {
+      Código: c.codigo || '', Nombre: c.nombre || '', Puesto: c.puesto || '', Departamento: c.departamento || '',
+      'Centro de trabajo': c.centro_trabajo || '',
+      'Guía I': etq(c.status_guia1), 'Fecha Guía I': c.fecha_encuesta_guia1 ? fechaCorta(c.fecha_encuesta_guia1) : '',
+      'Guía II': etq(c.status_guia2), 'Fecha Guía II': c.fecha_encuesta_guia2 ? fechaCorta(c.fecha_encuesta_guia2) : '',
+      'Guía III': etq(c.status), 'Fecha Guía III': c.fecha_encuesta ? fechaCorta(c.fecha_encuesta) : '',
+    };
+  });
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filasSeg.length ? filasSeg : [{ Aviso: 'Sin colaboradores en este ciclo' }]), 'Seguimiento');
+
+  // --- Guía I individual ---
+  const filasG1 = (exp.guia1_individual || []).map(function(p){
+    const aplica = p.seccion1_evento_traumatico;
+    return {
+      Nombre: p.nombre, Puesto: p.puesto || '', Departamento: p.departamento || '', 'Centro de trabajo': p.centro_trabajo || '', Código: p.codigo || '',
+      'Fecha de aplicación': fechaCorta(p.fecha),
+      'Evento traumático (Sección I)': aplica ? 'Sí' : 'No',
+      'Sección II (algún sí)': aplica ? (p.seccion2_algun_si ? 'Sí' : 'No') : 'N/A',
+      'Sección III (conteo)': aplica ? p.seccion3_conteo_si : 'N/A',
+      'Sección IV (conteo)': aplica ? p.seccion4_conteo_si : 'N/A',
+      'Requiere atención clínica': p.requiere_atencion_clinica ? 'Sí' : 'No',
+      'Criterios disparados': (p.criterios_disparados || []).map(function(c){ return ETIQUETA_CRITERIO[c] || c; }).join('; '),
+    };
+  });
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filasG1.length ? filasG1 : [{ Aviso: 'Sin resultados de Guía I en este ciclo' }]), 'Guía I individual');
+
+  // --- Guías II / III (anónimas, agregado) ---
+  const filasAnon = [];
+  (exp.anonimas_agregado || []).forEach(function(g){
+    const guia = g.guia === 'guia_2' ? 'Guía II' : (g.guia === 'guia_3' ? 'Guía III' : g.guia);
+    if (!g.detalle_visible) {
+      filasAnon.push({ Guía: guia, Centro: g.centro_trabajo || '(sin centro)', Respuestas: g.respuestas, Categoría: '', Dominio: '', 'Puntaje promedio': '',
+        Nulo: '', Bajo: '', Medio: '', Alto: '', 'Muy alto': '',
+        Nota: 'Menos de ' + exp.minimo_respuestas + ' respuestas: detalle oculto para preservar el anonimato' });
+      return;
+    }
+    (g.dominios || []).forEach(function(d){
+      filasAnon.push({ Guía: guia, Centro: g.centro_trabajo || '(sin centro)', Respuestas: g.respuestas, Categoría: d.categoria_id, Dominio: d.dominio_id,
+        'Puntaje promedio': Number(d.promedio), Nulo: d.n_nulo, Bajo: d.n_bajo, Medio: d.n_medio, Alto: d.n_alto, 'Muy alto': d.n_muy_alto, Nota: '' });
+    });
+  });
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filasAnon.length ? filasAnon : [{ Aviso: 'Sin respuestas anónimas en este ciclo' }]), 'Guías II-III (anónimo)');
+
+  return libro;
+}
+window.construirLibroExpediente = construirLibroExpediente;
+
+function expedienteDemo(ciclo) {
+  return {
+    ciclo: { nombre: ciclo.nombre, estado: ciclo.estado, fecha_inicio: ciclo.fecha_inicio, fecha_cierre: ciclo.fecha_cierre },
+    seguimiento: [
+      { codigo: 'D01', nombre: 'Colaborador Demo', puesto: 'Operador', departamento: 'Producción', centro_trabajo: 'CEDIS', status: null, status_guia1: null, status_guia2: 'contesto', fecha_encuesta_guia2: ciclo.fecha_inicio },
+      { codigo: 'D02', nombre: 'Colaborador Demo 2', puesto: 'Auxiliar', departamento: 'Almacén', centro_trabajo: 'TOLUCA', status: null, status_guia1: 'contesto', status_guia2: null, fecha_encuesta_guia1: ciclo.fecha_inicio },
+    ],
+    guia1_individual: [
+      { nombre: 'Colaborador Demo 2', puesto: 'Auxiliar', departamento: 'Almacén', centro_trabajo: 'TOLUCA', codigo: 'D02', fecha: ciclo.fecha_inicio,
+        seccion1_evento_traumatico: false, seccion2_algun_si: null, seccion3_conteo_si: null, seccion4_conteo_si: null, requiere_atencion_clinica: false, criterios_disparados: [] },
+    ],
+    anonimas_agregado: [{ guia: 'guia_2', centro_trabajo: 'CEDIS', respuestas: 6, detalle_visible: true,
+      dominios: [{ categoria_id: 'C1', dominio_id: 'D1', promedio: 4.5, n_nulo: 3, n_bajo: 3, n_medio: 0, n_alto: 0, n_muy_alto: 0 }] }],
+    minimo_respuestas: 5,
+  };
+}
+
+async function descargarExpediente(ciclo) {
+  if (!ciclo) return;
+  try {
+    let exp;
+    if (MODO_DEMO) {
+      exp = expedienteDemo(ciclo);
+    } else {
+      const resp = await supabaseClient.rpc('admin_expediente_ciclo', { p_ciclo_id: ciclo.id });
+      if (resp.error) throw resp.error;
+      exp = resp.data;
+    }
+    const libro = construirLibroExpediente(exp, ciclo);
+    const nombre = String(ciclo.nombre || 'ciclo').replace(/[^\w\-]+/g, '_');
+    const sufijo = ciclo.estado === 'cerrado' ? 'expediente' : 'avance';
+    window.XLSX.writeFile(libro, sufijo + '-nom035-' + nombre + '.xlsx');
+    mostrarToast('Expediente descargado.');
+  } catch (e) {
+    console.error(e);
+    mostrarToast(mensajeDeError(e, 'No se pudo generar el expediente. Revisa la consola.'));
+  }
+}
+
+// ---------------------------------------------------------------------
+// Arranque
+// ---------------------------------------------------------------------
+async function iniciar() {
+  await cargarCiclos();
+  renderTodo();
+}
+iniciar();
+</script>
+</body>
+</html>

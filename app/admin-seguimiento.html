@@ -106,6 +106,7 @@
     </div>
     <div class="acciones-top">
       <span id="pill-demo" class="pill-demo oculto">Modo demo</span>
+      <a class="btn btn-secundario" href="admin-ciclos.html" style="text-decoration:none;display:inline-flex;align-items:center;">Ciclos</a>
       <a class="btn btn-secundario" href="admin-reportes-guia1.html" style="text-decoration:none;display:inline-flex;align-items:center;">Reportes Guía I</a>
       <button class="btn btn-secundario" id="btn-importar">Importar colaboradores</button>
       <button class="btn btn-primario" id="btn-exportar">Exportar Excel</button>
@@ -542,6 +543,7 @@ function filaHTML(c) {
     '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
     '<button class="btn-fila" data-accion="recordatorio" data-id="' + c.id + '" ' + (puedeRecordar ? '' : 'disabled') + '>' + (c.recordatorios_enviados > 0 ? ('Reenviar (' + c.recordatorios_enviados + ')') : 'Recordar') + '</button>' +
     (g1 ? '<button class="btn-fila" data-accion="' + g1.accion + '" data-id="' + c.id + '">' + g1.texto + '</button>' : '') +
+    (tieneAvance(c) ? '<button class="btn-fila" data-accion="reiniciar" data-id="' + c.id + '" title="Borra su avance en el ciclo actual">Reiniciar</button>' : '') +
     '</td>' +
     '</tr>';
 }
@@ -584,6 +586,11 @@ function renderTabla() {
   const btns = contenedor.querySelectorAll('[data-accion="recordatorio"]');
   btns.forEach(function(btn) {
     btn.addEventListener('click', function(){ enviarRecordatorio(btn.dataset.id); });
+  });
+
+  const btnsReiniciar = contenedor.querySelectorAll('[data-accion="reiniciar"]');
+  btnsReiniciar.forEach(function(btn) {
+    btn.addEventListener('click', function(){ reiniciarColaborador(btn.dataset.id); });
   });
 
   const btnsAsignar = contenedor.querySelectorAll('[data-accion="asignar-guia1"]');
@@ -652,6 +659,49 @@ async function enviarRecordatorioMasivo() {
   boton.disabled = false;
   boton.textContent = 'Enviar recordatorio a pendientes';
   mostrarToast('Recordatorios enviados a ' + pendientes.length + ' colaboradores pendientes.');
+}
+
+// ---------------------------------------------------------------------
+// Acciones: reiniciar el avance de UNA persona (pruebas / correcciones)
+// ---------------------------------------------------------------------
+function tieneAvance(c) {
+  return ['status', 'status_guia1', 'status_guia2'].some(function(k){
+    return c[k] === 'en_proceso' || c[k] === 'contesto';
+  });
+}
+
+async function reiniciarColaborador(colaboradorId) {
+  const colaborador = estado.colaboradores.find(function(c){ return c.id === colaboradorId; });
+  if (!colaborador) return;
+
+  const ok = window.confirm(
+    'Reiniciar a ' + colaborador.nombre + '?\n\n' +
+    '- Su estatus vuelve a "No contesto" y podra contestar de nuevo.\n' +
+    '- Si tenia resultado de Guia I en el ciclo actual, se elimina.\n' +
+    '- Los resultados anonimos de Guia II/III NO se pueden borrar por persona (no estan ligados a nadie); ' +
+    'para limpiar pruebas anonimas usa Ciclos > cerrar ciclo y eliminarlo.\n\n' +
+    'Esta accion no se puede deshacer.'
+  );
+  if (!ok) return;
+
+  if (MODO_DEMO) {
+    ['status', 'status_guia1', 'status_guia2'].forEach(function(k){
+      if (colaborador[k] != null) colaborador[k] = 'no_contesto';
+    });
+    renderTabla();
+    mostrarToast(colaborador.nombre + ' reiniciado (demo).');
+    return;
+  }
+  try {
+    const resp = await supabaseClient.rpc('admin_reiniciar_colaborador', { p_colaborador_id: colaboradorId });
+    if (resp.error) throw resp.error;
+    await cargarColaboradores();
+    renderTabla();
+    mostrarToast(colaborador.nombre + ' reiniciado.');
+  } catch (e) {
+    console.error(e);
+    mostrarToast('No se pudo reiniciar a la persona.');
+  }
 }
 
 // ---------------------------------------------------------------------

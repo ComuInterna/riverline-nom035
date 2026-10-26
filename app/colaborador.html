@@ -131,7 +131,6 @@
     font-family:var(--font);
     font-size:16px;
     background:var(--gris-100);
-    color:white;
     transition:border-color .15s ease, background .15s ease;
   }
   input.campo-input:focus{
@@ -718,13 +717,24 @@ function guardarBuffer() {
     esJefe: estado.esJefe,
     respuestas: estado.respuestas,
     pasoActual: estado.pasoActual,
+    token: estado.tokenAvance || null,
   };
   localStorage.setItem(claveBuffer(estado.guiaActual), JSON.stringify(payload));
 }
 function recuperarBuffer(codigo, guia) {
-  const raw = localStorage.getItem(`nom035_buffer_${codigo}_${guia}`);
+  const clave = `nom035_buffer_${codigo}_${guia}`;
+  const raw = localStorage.getItem(clave);
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  let buffer;
+  try { buffer = JSON.parse(raw); } catch { return null; }
+  // Si el administrador reinicio a esta persona o cerro el ciclo, el avance
+  // guardado en este navegador ya no es vigente: se descarta.
+  // (Si no se pudo obtener el token, se conserva el comportamiento anterior.)
+  if (estado.tokenAvance && (!buffer || buffer.token !== estado.tokenAvance)) {
+    localStorage.removeItem(clave);
+    return null;
+  }
+  return buffer;
 }
 function borrarBuffer() {
   localStorage.removeItem(claveBuffer(estado.guiaActual));
@@ -751,6 +761,18 @@ async function buscarColaborador(codigo) {
   }
   const fila = Array.isArray(data) ? (data[0] ?? null) : data;
   return fila;
+}
+
+async function obtenerTokenAvance(colaboradorId) {
+  if (MODO_DEMO) return null;
+  try {
+    const { data, error } = await supabaseClient.rpc('avance_token', { p_colaborador_id: colaboradorId });
+    if (error) throw error;
+    return data || null;
+  } catch (e) {
+    console.error('[avance_token] no se pudo obtener (no bloqueante):', e);
+    return null;
+  }
 }
 
 async function marcarAcceso(colaboradorId) {
@@ -814,6 +836,7 @@ function renderLogin() {
       }
       estado.colaborador = Object.assign({ codigo: codigo.trim() }, colaborador);
       await marcarAcceso(colaborador.id);
+      estado.tokenAvance = await obtenerTokenAvance(colaborador.id);
 
       const pendientes = calcularGuiasPendientes(colaborador);
       if (pendientes.length === 0) {

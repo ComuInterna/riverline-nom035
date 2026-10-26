@@ -36,6 +36,7 @@
   .filtros-acciones{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .btn-mini{appearance:none;border:1.5px solid var(--gris-200);background:#fff;cursor:pointer;font-family:var(--font);font-weight:700;font-size:12px;border-radius:100px;padding:6px 12px;color:var(--gris-700);}
   .btn-mini:hover{border-color:var(--gris-500);}
+  .selector-ciclo{font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);background:#fff;color:var(--negro);margin-bottom:12px;max-width:100%;}
   .campo-busqueda{width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--gris-200);font-family:var(--font);font-size:13.5px;margin-bottom:12px;background:#fff;color:var(--negro);}
   .lista-centros-filtro{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
   .chip-centro{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:100px;border:1.5px solid var(--gris-200);background:#fff;color:var(--gris-700);cursor:pointer;user-select:none;}
@@ -83,7 +84,7 @@
     :root{ --gris-100:#121317; --gris-200:#26282f; --blanco:#1b1c22; --negro:#f2f2f4; --gris-900:#eceef1; --gris-700:#b7b9c2; --gris-500:#7c7f89; }
     body{background:#0c0d10;}
     .tarjeta-reporte,.panel,.panel-personas{background:#1b1c22;}
-    .btn-mini,.btn-secundario,.campo-busqueda,.chip-centro{background:#1b1c22;color:#eceef1;}
+    .btn-mini,.btn-secundario,.campo-busqueda,.chip-centro,.selector-ciclo{background:#1b1c22;color:#eceef1;}
     .chip-centro.activo{background:#f2f2f4;color:#15161a;}
     .tarjeta-icono{background:#26282f;}
     .lista-personas{border-color:#26282f;}
@@ -105,6 +106,8 @@
 
   <section class="panel-personas">
     <div class="panel-titulo">Colaboradores a incluir en el reporte</div>
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--gris-500);margin-bottom:4px;">Ciclo de aplicación</label>
+    <select id="selector-ciclo" class="selector-ciclo"></select>
     <input type="text" id="campo-busqueda" class="campo-busqueda" placeholder="Buscar por nombre o código…" />
     <div class="lista-centros-filtro" id="lista-centros-filtro"></div>
     <div class="filtros-acciones">
@@ -181,6 +184,9 @@ const estado = {
   seleccionados: [],
   errorCarga: null,
   centrosFiltro: new Set(),
+  ciclos: [],
+  cicloId: null,       // null = ciclo abierto
+  cicloNombre: 'Ciclo actual',
 };
 window.estado = estado;
 
@@ -192,6 +198,32 @@ function datosDemo() {
   ];
 }
 
+async function cargarCiclos() {
+  const sel = document.getElementById('selector-ciclo');
+  if (MODO_DEMO) {
+    estado.ciclos = [{ id: 'demo-abierto', nombre: 'Ciclo demo', estado: 'abierto' }];
+  } else {
+    const resp = await supabaseClient.rpc('admin_listar_ciclos');
+    if (resp.error) {
+      console.error('admin_listar_ciclos:', resp.error);
+      estado.ciclos = [];
+    } else {
+      estado.ciclos = resp.data || [];
+    }
+  }
+  if (estado.ciclos.length === 0) {
+    sel.innerHTML = '<option value="">Ciclo actual</option>';
+    return;
+  }
+  sel.innerHTML = estado.ciclos.map((c) =>
+    '<option value="' + c.id + '">' + c.nombre + (c.estado === 'abierto' ? ' (actual)' : ' (cerrado)') + '</option>'
+  ).join('');
+  const abierto = estado.ciclos.find((c) => c.estado === 'abierto') || estado.ciclos[0];
+  sel.value = abierto.id;
+  estado.cicloId = abierto.estado === 'abierto' ? null : abierto.id;
+  estado.cicloNombre = abierto.nombre;
+}
+
 async function cargarResultados() {
   estado.errorCarga = null;
   if (MODO_DEMO) {
@@ -200,7 +232,7 @@ async function cargarResultados() {
     renderListaPersonas();
     return;
   }
-  const resp = await supabaseClient.rpc('admin_obtener_resultados_guia1');
+  const resp = await supabaseClient.rpc('admin_obtener_resultados_guia1', { p_ciclo_id: estado.cicloId });
   if (resp.error) {
     console.error('admin_obtener_resultados_guia1:', resp.error);
     estado.errorCarga = resp.error.message && resp.error.message.includes('No autorizado')
@@ -321,7 +353,8 @@ function formatearFecha(fecha) {
 }
 
 function nombreArchivoSufijo() {
-  return estado.seleccionados.length === 1 ? (estado.seleccionados[0].codigo || estado.seleccionados[0].resultado_id) : estado.seleccionados.length + 'personas';
+  const ciclo = String(estado.cicloNombre || '').replace(/[^\w\-]+/g, '_');
+  return ciclo + '-' + (estado.seleccionados.length === 1 ? (estado.seleccionados[0].codigo || estado.seleccionados[0].resultado_id) : estado.seleccionados.length + 'personas');
 }
 
 // =======================================================================
@@ -335,7 +368,8 @@ function construirDocDefinicionPDF(tipo) {
     { text: 'Riverline', style: 'marca' },
     { text: tipo === 'ejecutivo' ? 'Reporte Ejecutivo — Guia I' : 'Reporte Tecnico — Guia I', style: 'tituloPortada', margin: [0, 60, 0, 6] },
     { text: 'Tamizaje de acontecimientos traumaticos severos · Individual y confidencial', style: 'subtituloPortada' },
-    { text: 'Colaboradores incluidos: ' + personas.length, margin: [0, 30, 0, 2], style: 'metaPortada' },
+    { text: 'Ciclo: ' + estado.cicloNombre, margin: [0, 30, 0, 2], style: 'metaPortada' },
+    { text: 'Colaboradores incluidos: ' + personas.length, style: 'metaPortada' },
     { text: 'Generado: ' + fechaGeneracion, style: 'metaPortada' },
     { text: 'CONFIDENCIAL — uso exclusivo de Desarrollo Humano / seguimiento clinico.', style: 'metaPortada', margin: [0, 10, 0, 0] },
     { text: '', pageBreak: 'after' },
@@ -427,6 +461,7 @@ function generarPDF(tipo) {
 function generarExcel() {
   const libro = window.XLSX.utils.book_new();
   const filas = estado.seleccionados.map((p) => ({
+    Ciclo: estado.cicloNombre,
     Nombre: p.nombre,
     Puesto: p.puesto || '',
     Departamento: p.departamento || '',
@@ -464,7 +499,7 @@ async function generarWord() {
   const hijos = [
     new Paragraph({ text: 'Riverline', heading: HeadingLevel.TITLE }),
     new Paragraph({ text: 'Reporte Tecnico — Guia I (tamizaje individual)', heading: HeadingLevel.HEADING_1 }),
-    new Paragraph({ text: 'Colaboradores incluidos: ' + personas.length + '   ·   Generado: ' + fechaGeneracion }),
+    new Paragraph({ text: 'Ciclo: ' + estado.cicloNombre + '   ·   Colaboradores incluidos: ' + personas.length + '   ·   Generado: ' + fechaGeneracion }),
     new Paragraph({ text: 'CONFIDENCIAL — uso exclusivo de Desarrollo Humano / seguimiento clinico.' }),
     new Paragraph({ text: '' }),
     new Paragraph({ text: 'Objetivo', heading: HeadingLevel.HEADING_2 }),
@@ -547,6 +582,16 @@ function inicializarEventos() {
   document.getElementById('btn-excel').addEventListener('click', envolverConToast(() => generarExcel(), 'Excel generado.'));
   document.getElementById('btn-word').addEventListener('click', envolverConToast(() => generarWord(), 'Word generado.'));
 
+  document.getElementById('selector-ciclo').addEventListener('change', async function(e) {
+    const c = estado.ciclos.find((x) => x.id === e.target.value);
+    estado.cicloId = c && c.estado !== 'abierto' ? c.id : null;
+    estado.cicloNombre = c ? c.nombre : 'Ciclo actual';
+    estado.seleccionados = [];
+    estado.centrosFiltro.clear();
+    renderResumen();
+    habilitarBotonesReporte(false);
+    await cargarResultados();
+  });
   document.getElementById('btn-cargar-seleccion').addEventListener('click', cargarSeleccion);
   document.getElementById('campo-busqueda').addEventListener('input', () => renderListaPersonas(false));
   document.getElementById('btn-seleccionar-todos').addEventListener('click', function() {
@@ -557,10 +602,11 @@ function inicializarEventos() {
   });
 }
 
-function iniciar() {
+async function iniciar() {
   inicializarEventos();
   habilitarBotonesReporte(false);
-  cargarResultados();
+  await cargarCiclos();
+  await cargarResultados();
 }
 iniciar();
 </script>
