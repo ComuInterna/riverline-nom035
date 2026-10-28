@@ -31,7 +31,7 @@ const codigoFuente = codigoFuenteOriginal.replace(
   'window.generarResultadosDemo = generarResultadosDemo; window.construirResumenPeriodo = construirResumenPeriodo; ' +
   'window.construirRankingDominios = construirRankingDominios; window.construirTablaCategorias = construirTablaCategorias; ' +
   'window.construirPlanDeAccion = construirPlanDeAccion; window.construirDocDefinicionPDF = construirDocDefinicionPDF; ' +
-  'try { iniciar(); } catch (e) {}\n'
+  'try { Promise.resolve(iniciar()).catch(function(){}); } catch (e) {}\n'
 );
 if (codigoFuente === codigoFuenteOriginal) throw new Error('No se encontro la llamada final a iniciar(); revisa admin-reportes.html');
 const sandbox = {

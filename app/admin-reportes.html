@@ -83,6 +83,7 @@
 
 
 
+
   /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
   :root{ color-scheme: light dark; --gris-500:#666973; }
   ::placeholder{ color:var(--gris-500); opacity:1; }
@@ -98,6 +99,11 @@
   }
   .pill-demo{ background:#fbf3dd; color:#7a5a0a; }
   @media (prefers-color-scheme: dark){ .pill-demo{ background:#3a3115; color:#f2d27c; } }
+
+  .periodo-fila{ display:flex; align-items:center; gap:10px; margin:0 0 12px; flex-wrap:wrap; }
+  .periodo-fila label{ font-size:12px; font-weight:700; color:var(--gris-500); }
+  .selector-periodo{ font-family:var(--font); font-size:13.5px; font-weight:600; padding:9px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--gris-200); background:#fff; color:var(--negro); }
+  @media (prefers-color-scheme: dark){ .selector-periodo{ background:#1b1c22; color:#eceef1; } }
   /* ==== /CONTRASTE-AA ==== */
 </style>
 </head>
@@ -113,6 +119,10 @@
 
   <section class="panel-centros">
     <div class="panel-titulo">Centros de trabajo a incluir en el reporte</div>
+    <div class="periodo-fila">
+      <label for="selector-periodo">Periodo</label>
+      <select id="selector-periodo" class="selector-periodo"></select>
+    </div>
     <div class="centros-acciones">
       <button class="btn-mini" id="btn-seleccionar-todos" type="button">Seleccionar todos</button>
       <button class="btn-mini" id="btn-limpiar-seleccion" type="button">Limpiar</button>
@@ -433,7 +443,8 @@ function nivelGlobalDemo(puntaje, catalogo) {
 }
 
 const estado = {
-  periodo: '2026-Q3',
+  periodo: '2026-Q3',           // en demo; con datos reales arranca en el periodo mas reciente que tenga respuestas
+  periodosDisponibles: [],
   centrosSeleccionados: [],
   resultadosPorCentro: new Map(), // centroId -> { guia, catalogo, resultados }
   errorCarga: null,
@@ -824,7 +835,7 @@ function renderResumen() {
 
   if (centros.length === 0) {
     contenedor.innerHTML = '<p style="color:var(--rojo);font-size:13.5px;font-weight:600;">' +
-      (estado.errorCarga || 'No hay resultados disponibles todavía para los centros seleccionados.') + '</p>';
+      (estado.errorCarga || mensajeSinResultados()) + '</p>';
     return;
   }
 
@@ -847,6 +858,57 @@ function renderResumen() {
     '<table class="tabla-resumen-centros" style="margin-top:12px;"><thead><tr>' +
     '<th>Centro</th><th>Guia</th><th>Respuestas</th><th>Cfinal</th><th>Nivel</th>' +
     '</tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+// ---------------------------------------------------------------------
+// Periodo: el reporte se pide por periodo (trimestre). Antes estaba fijo en
+// '2026-Q3', asi que las respuestas de otros trimestres nunca aparecian.
+// ---------------------------------------------------------------------
+function trimestreActual(f) {
+  const d = f || new Date();
+  return d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1);
+}
+
+function mensajeSinResultados() {
+  const otros = estado.periodosDisponibles.filter((p) => p.periodo !== estado.periodo && p.respuestas > 0);
+  let msg = 'No hay respuestas en el periodo ' + estado.periodo + ' para los centros seleccionados.';
+  if (otros.length > 0) {
+    msg += ' Hay respuestas en: ' + otros.map((p) => p.periodo).join(', ') + ' (cambia el periodo arriba).';
+  }
+  return msg;
+}
+
+async function cargarPeriodosDisponibles() {
+  if (MODO_DEMO) {
+    estado.periodosDisponibles = [{ periodo: estado.periodo, respuestas: null, ultima: null }];
+    return;
+  }
+  let lista = [];
+  const resp = await supabaseClient.rpc('admin_listar_periodos');
+  if (resp.error) {
+    console.error('admin_listar_periodos (¿ya corriste la migración 16?):', resp.error);
+  } else {
+    const porPeriodo = new Map();
+    (Array.isArray(resp.data) ? resp.data : []).forEach((r) => {
+      const actual = porPeriodo.get(r.periodo) || { periodo: r.periodo, respuestas: 0, ultima: null };
+      actual.respuestas += r.respuestas;
+      if (r.ultima && (!actual.ultima || new Date(r.ultima) > new Date(actual.ultima))) actual.ultima = r.ultima;
+      porPeriodo.set(r.periodo, actual);
+    });
+    lista = Array.from(porPeriodo.values()).sort((a, b) => new Date(b.ultima || 0) - new Date(a.ultima || 0));
+  }
+  if (lista.length === 0) lista = [{ periodo: trimestreActual(), respuestas: 0, ultima: null }];
+  estado.periodosDisponibles = lista;
+  estado.periodo = lista[0].periodo;   // el mas reciente
+}
+
+function renderSelectorPeriodo() {
+  const sel = document.getElementById('selector-periodo');
+  sel.innerHTML = estado.periodosDisponibles.map((p) => {
+    const nota = p.respuestas === null ? '' : (p.respuestas === 0 ? ' (sin respuestas)' : ' (' + p.respuestas + ' respuesta' + (p.respuestas === 1 ? '' : 's') + ')');
+    return '<option value="' + p.periodo + '">' + p.periodo + nota + '</option>';
+  }).join('');
+  sel.value = estado.periodo;
 }
 
 function mostrarToast(msg) {
@@ -945,6 +1007,17 @@ function inicializarEventos() {
   document.getElementById('btn-ppt').addEventListener('click', envolverConToast(() => generarPowerPoint(), 'PowerPoint generado.'));
 
   document.getElementById('btn-cargar-centros').addEventListener('click', cargarCentrosSeleccionados);
+  document.getElementById('selector-periodo').addEventListener('change', async function(e) {
+    estado.periodo = e.target.value;
+    estado.resultadosPorCentro.clear();
+    estado.centrosSeleccionados = [];
+    habilitarBotonesReporte(false);
+    if (centrosMarcados().length > 0) {
+      await cargarCentrosSeleccionados();   // recarga con el periodo nuevo
+    } else {
+      document.getElementById('resumen-periodo').innerHTML = '<p style="color:var(--gris-500);font-size:13px;">Selecciona uno o varios centros y presiona "Cargar centros seleccionados".</p>';
+    }
+  });
   document.getElementById('btn-seleccionar-todos').addEventListener('click', function() {
     document.querySelectorAll('#lista-centros input[type="checkbox"]').forEach((el) => { el.checked = true; });
   });
@@ -953,10 +1026,12 @@ function inicializarEventos() {
   });
 }
 
-function iniciar() {
+async function iniciar() {
   renderListaCentros();
   inicializarEventos();
   habilitarBotonesReporte(false);
+  await cargarPeriodosDisponibles();
+  renderSelectorPeriodo();
 }
 iniciar();
 </script>

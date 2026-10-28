@@ -30,6 +30,12 @@ function construirHtml({ forzarDemo = true } = {}) {
         window.__ultimaLlamadaRpc = null;
         window.supabase = { createClient: function(){
           return { rpc: function(nombre, args) {
+            if (nombre === 'admin_listar_periodos') {
+              return Promise.resolve({ data: [
+                { periodo: '2026-Q3', guia: 'guia_2', centro_trabajo: 'CEDIS', respuestas: 2, ultima: '2026-09-02T00:00:00Z' },
+                { periodo: '2026-Q4', guia: 'guia_2', centro_trabajo: 'CEDIS', respuestas: 1, ultima: '2026-10-25T00:00:00Z' },
+              ], error: null });
+            }
             window.__ultimaLlamadaRpc = { nombre: nombre, args: args };
             return Promise.resolve({ data: { global: { puntaje: 0, nivel_riesgo: 'nulo' }, porCategoria: [], porDominio: [], porDepartamento: [] }, error: null });
           } };
@@ -135,6 +141,9 @@ async function escenario5_rpcRecibeGuiaYCentro() {
   assert(window.__ultimaLlamadaRpc.nombre === 'obtener_resultados_periodo', 'se llamó a la función correcta');
   assert(window.__ultimaLlamadaRpc.args.p_guia === 'guia_2', 'primera carga manda p_guia=guia_2 (centro por defecto CEDIS)');
   assert(window.__ultimaLlamadaRpc.args.p_centro_trabajo === 'CEDIS', 'primera carga manda p_centro_trabajo=CEDIS');
+  assert(window.__ultimaLlamadaRpc.args.p_periodo === '2026-Q4', 'primera carga pide el periodo mas reciente con respuestas (2026-Q4), no uno vacio');
+  const opciones = Array.from(doc.querySelectorAll('#selector-periodo option')).map((o) => o.value);
+  assert(opciones.join(',') === '2026-Q4,2026-Q3', 'el selector de periodo lista los periodos reales, el mas reciente primero');
 
   const sel = doc.getElementById('selector-centro');
   const llamadasAntes = window.__ultimaLlamadaRpc;

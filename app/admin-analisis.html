@@ -91,6 +91,7 @@
 
 
 
+
   /* ==== CONTRASTE-AA (legibilidad; WCAG 2.1 AA) ==== */
   :root{ color-scheme: light dark; --gris-500:#666973; }
   ::placeholder{ color:var(--gris-500); opacity:1; }
@@ -690,9 +691,38 @@ async function cargarResultados(periodo) {
   estado.resultados = resp.data;
 }
 
-function inicializarSelectorPeriodo() {
+function trimestreActual() {
+  const d = new Date();
+  return d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1);
+}
+
+// Periodos que realmente tienen respuestas (el mas reciente primero). Antes el
+// selector quedaba vacio fuera del modo demo y se pedia un periodo en blanco.
+async function obtenerPeriodosConDatos() {
+  const resp = await supabaseClient.rpc('admin_listar_periodos');
+  if (resp.error) {
+    console.error('admin_listar_periodos (¿ya corriste la migración 16?):', resp.error);
+    return [];
+  }
+  const porPeriodo = new Map();
+  (Array.isArray(resp.data) ? resp.data : []).forEach(function(r) {
+    const a = porPeriodo.get(r.periodo) || { periodo: r.periodo, respuestas: 0, ultima: null };
+    a.respuestas += r.respuestas;
+    if (r.ultima && (!a.ultima || new Date(r.ultima) > new Date(a.ultima))) a.ultima = r.ultima;
+    porPeriodo.set(r.periodo, a);
+  });
+  return Array.from(porPeriodo.values()).sort(function(a, b){ return new Date(b.ultima || 0) - new Date(a.ultima || 0); });
+}
+
+async function inicializarSelectorPeriodo() {
   const sel = document.getElementById('selector-periodo');
-  const periodos = MODO_DEMO ? ['2026-Q3 (demo)'] : [];
+  let periodos = ['2026-Q3 (demo)'];
+  if (!MODO_DEMO) {
+    const conDatos = await obtenerPeriodosConDatos();
+    periodos = conDatos.length > 0
+      ? conDatos.map(function(p){ return p.periodo; })
+      : [trimestreActual()];
+  }
   periodos.forEach(function(p){ sel.insertAdjacentHTML('beforeend', '<option value="' + p + '">' + p + '</option>'); });
   sel.addEventListener('change', async function() {
     await cargarResultados(sel.value);
@@ -724,7 +754,7 @@ function inicializarSelectorCentro() {
 
 async function iniciar() {
   inicializarSelectorCentro();
-  inicializarSelectorPeriodo();
+  await inicializarSelectorPeriodo();
   await cargarResultados(document.getElementById('selector-periodo').value);
   renderTodo();
 }
