@@ -52,7 +52,7 @@
     font-family:var(--font);font-size:13.5px;padding:9px 12px;border-radius:var(--radius-sm);
     border:1.5px solid var(--gris-200);background:var(--gris-100);color:var(--negro);
   }
-  .filtros select:focus, .filtros input:focus{outline:none;border-color:var(--rojo);background:#fff;}
+  .filtros select:focus, .filtros input:focus{outline:none;border-color:var(--rojo);background:var(--blanco);}
 
   table.tabla-seguimiento{width:100%;border-collapse:collapse;font-size:13.5px;}
   table.tabla-seguimiento th{
@@ -120,6 +120,7 @@
   .badge-contesto{ color:#146c3a; }
   .badge-en_proceso{ color:#7a5a0a; }
   .btn-fila:disabled{ opacity:.7; cursor:not-allowed; }
+  .btn-fila:hover:not(:disabled){ color:#b80a24; }
   @media (prefers-color-scheme: dark){
     .badge-contesto{ background:#173524; color:#7fe0a3; }
     .badge-en_proceso{ background:#3a3115; color:#f2d27c; }
