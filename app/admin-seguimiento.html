@@ -586,7 +586,9 @@ function renderTabla() {
   const contenedor = document.getElementById('contenedor-tabla');
 
   if (ordenadas.length === 0) {
-    contenedor.innerHTML = '<div class="vacio">No hay colaboradores que coincidan con los filtros.</div>';
+    contenedor.innerHTML = estado.colaboradores.length === 0
+      ? '<div class="vacio">Aún no hay colaboradores en este ciclo. Usa «Importar colaboradores» para cargar tu plantilla.</div>'
+      : '<div class="vacio">No hay colaboradores que coincidan con los filtros.</div>';
     return;
   }
 
